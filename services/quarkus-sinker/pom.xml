@@ -36,6 +36,11 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-kafka-streams</artifactId>
         </dependency>
+        <!-- Reactive Messaging APIs used for DLQ emitter -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-messaging-kafka</artifactId>
+        </dependency>
 
         <!-- 2. Database: Panache ORM for easy Postgres writes -->
         <dependency>
@@ -62,6 +67,11 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-smallrye-health</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
