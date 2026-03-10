@@ -46,9 +46,12 @@ public class TopologyProducer {
                     try {
                         saveToDatabase(request);
                     } catch (Exception e) {
-                        // Send failed messages to Dead Letter Queue for later analysis/reprocessing
-                        LOG.errorf(e, "Failed to save bid %s to database. Sending to DLQ.", request.id);
-                        dlqService.sendToDeadLetterQueue(request, e, "DATABASE_PERSIST");
+                        if (dlqService.isEnabled()) {
+                            LOG.errorf(e, "Failed to save bid %s to database. Sending to DLQ.", request.id);
+                            dlqService.sendToDeadLetterQueue(request, e, "DATABASE_PERSIST");
+                        } else {
+                            LOG.errorf(e, "Failed to save bid %s to database. DLQ disabled.", request.id);
+                        }
                     }
                 });
 

@@ -2,6 +2,7 @@ package demo.adtech;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.reactive.messaging.Channel;
 import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.eclipse.microprofile.reactive.messaging.OnOverflow;
@@ -18,10 +19,17 @@ public class DeadLetterQueueService {
 
     private static final Logger LOG = Logger.getLogger(DeadLetterQueueService.class);
 
+    @ConfigProperty(name = "sinker.dlq.enabled", defaultValue = "false")
+    boolean dlqEnabled;
+
     @Inject
     @Channel("dlq-out")
     @OnOverflow(value = OnOverflow.Strategy.BUFFER, bufferSize = 1000)
     Emitter<FailedBidRecord> dlqEmitter;
+
+    public boolean isEnabled() {
+        return dlqEnabled;
+    }
 
     /**
      * Sends a failed bid request to the Dead Letter Queue.
@@ -31,6 +39,11 @@ public class DeadLetterQueueService {
      * @param operation The operation that was being performed when the failure occurred
      */
     public void sendToDeadLetterQueue(BidRequest request, Throwable error, String operation) {
+        if (!dlqEnabled) {
+            LOG.debugf("DLQ disabled, dropping failed bid %s", request.id);
+            return;
+        }
+
         try {
             FailedBidRecord failedRecord = new FailedBidRecord(
                     request,
@@ -61,4 +74,3 @@ public class DeadLetterQueueService {
             Instant failedAt
     ) {}
 }
-
