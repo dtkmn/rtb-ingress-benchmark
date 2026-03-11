@@ -8,13 +8,9 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.reactive.messaging.Channel;
-import org.eclipse.microprofile.reactive.messaging.Emitter;
-import org.eclipse.microprofile.reactive.messaging.OnOverflow;
 import org.jboss.logging.Logger;
 
 import java.util.Map;
-import java.util.concurrent.CompletionStage;
 
 @Path( "/bid-request")
 @Consumes(MediaType.APPLICATION_JSON)
@@ -23,12 +19,8 @@ public class BidReceiverResource {
 
     private static final Logger LOG = Logger.getLogger(BidReceiverResource.class);
 
-    // "Emitter" is the reactive way to push messages to a stream (Kafka).
-    // It's non-blocking and very high performance.
     @Inject
-    @Channel("bid-stream")
-    @OnOverflow(value = OnOverflow.Strategy.BUFFER, bufferSize = 5000)
-    Emitter<BidRequest> bidEmitter;
+    BidPublisher bidPublisher;
 
     @Inject
     BenchmarkSettings benchmarkSettings;
@@ -57,9 +49,13 @@ public class BidReceiverResource {
             return Uni.createFrom().item(Response.noContent().build());
         }
 
+        if (benchmarkSettings.isHttpOnlyMode()) {
+            return Uni.createFrom().item(Response.ok(Map.of("status", "accepted")).build());
+        }
+
         // --- STAGE 3: PUSH TO KAFKA & ACKNOWLEDGE ---
         // If it passed the filters, it's a "good" request. Push it to the Decision Engine.
-        CompletionStage<Void> delivery = bidEmitter.send(request);
+        var delivery = bidPublisher.publish(request);
 
         if (!benchmarkSettings.isConfirmDeliveryMode()) {
             return Uni.createFrom().item(Response.ok(Map.of("status", "accepted")).build());
