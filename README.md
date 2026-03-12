@@ -57,7 +57,7 @@ We will perform load testing using realistic, albeit simplified, OpenRTB JSON pa
 ```mermaid
 graph TB
     subgraph "Load Balancer / Ingress"
-        LB[Load Balancer<br/>Port 8070-8077]
+        LB[Load Balancer<br/>Port 8070-8078]
     end
     
     subgraph "Receiver Layer - High Throughput HTTP Services"
@@ -66,7 +66,8 @@ graph TB
         GR[Go Receiver<br/>:8072]
         RR[Rust Receiver<br/>:8073]
         PR[Python Receiver<br/>:8075]
-        SR[Spring Receiver<br/>:8076]
+        SR[Spring Receiver WebFlux<br/>:8076]
+        SVR[Spring Receiver VT<br/>:8078]
         NR[Node Receiver<br/>:8077]
     end
     
@@ -98,6 +99,7 @@ graph TB
     LB --> RR
     LB --> PR
     LB --> SR
+    LB --> SVR
     LB --> NR
     
     QR -->|Reactive Messaging| K
@@ -106,6 +108,7 @@ graph TB
     RR -->|Kafka Producer| K
     PR -->|Kafka Producer| K
     SR -->|Kafka Producer| K
+    SVR -->|Kafka Producer| K
     NR -->|Kafka Producer| K
     
     K --> QS
@@ -146,7 +149,8 @@ graph TB
 | **go-receiver** | 8072 | Go + Gin | Go receiver baseline |
 | **rust-receiver** | 8073 | Rust + Actix | Rust receiver baseline |
 | **python-receiver** | 8075 | Python + FastAPI | Python receiver baseline |
-| **spring-receiver** | 8076 | Spring Boot 4 + MVC | Mainstream Java receiver baseline |
+| **spring-receiver** | 8076 | Spring Boot 4 + WebFlux | Reactive Spring receiver baseline |
+| **spring-virtual-receiver** | 8078 | Spring Boot 4 + MVC + virtual threads | Blocking Spring receiver baseline |
 | **node-receiver** | 8077 | Node 24 + Fastify | JavaScript/TypeScript receiver baseline |
 | **quarkus-sinker** | 8074 | Quarkus JVM + Kafka Streams | Downstream sinker and persistence stage |
 
@@ -338,8 +342,10 @@ scripts/run-benchmark-matrix.sh
 Run fire-and-forget mode explicitly:
 
 ```bash
-BENCHMARK_DELIVERY_MODE=enqueue BENCHMARK_KAFKA_ACKS=0 scripts/run-benchmark-matrix.sh
+BENCHMARK_DELIVERY_MODE=enqueue scripts/run-benchmark-matrix.sh
 ```
+
+`enqueue` now defaults `BENCHMARK_KAFKA_ACKS` to `0` unless you override it explicitly.
 
 Run the pure receiver path without Kafka:
 
@@ -361,12 +367,12 @@ Make concurrency explicit when you want to compare scheduler behavior instead of
 HTTP_SERVER_WORKERS=2 \
 GOMAXPROCS=2 \
 QUARKUS_HTTP_IO_THREADS=2 \
-SPRING_TOMCAT_THREADS_MAX=200 \
-SPRING_TOMCAT_THREADS_MIN_SPARE=10 \
 scripts/run-benchmark-matrix.sh
 ```
 
-`HTTP_SERVER_WORKERS` is not a literal CPU-thread knob across the whole matrix. In this repo it means worker processes for Python and Node, and worker threads for Rust. `BENCHMARK_RECEIVER_CPUS` is the actual container CPU budget.
+`HTTP_SERVER_WORKERS` is not a literal CPU-thread knob across the whole matrix. In this repo it means worker processes for Python and Node, worker threads for Rust, and Reactor Netty I/O workers for Spring WebFlux. `BENCHMARK_RECEIVER_CPUS` is the actual container CPU budget.
+
+`spring-virtual-receiver` enables Spring Boot virtual threads, so Spring's own pool-size properties are intentionally not used there. That lane is constrained by the container CPU budget rather than an explicit server worker-count setting.
 
 Keep Kafka producer tuning aligned too:
 
