@@ -29,8 +29,6 @@ MODE_COMPARISON_META_KEYS = (
     "default_receiver_parallelism",
     "go_max_procs",
     "quarkus_http_io_threads",
-    "spring_tomcat_threads_max",
-    "spring_tomcat_threads_min_spare",
     "kafka_linger_ms",
     "kafka_batch_bytes",
     "kafka_request_timeout_ms",
@@ -100,6 +98,12 @@ def safe_ratio(numerator: float, denominator: float) -> float | None:
     if denominator <= 0:
         return None
     return numerator / denominator
+
+
+def format_percent(value: float | int | None, digits: int = 2) -> str:
+    if value is None:
+        return "n/a"
+    return f"{float(value) * 100:.{digits}f}%"
 
 
 def parse_timestamp(raw: str | None, fallback_dir_name: str = "") -> datetime | None:
@@ -388,6 +392,13 @@ def numeric_value(row: dict[str, float | int | str], key: str) -> float:
     return float(value)
 
 
+def normalized_uname_for_comparison(raw: str) -> str:
+    parts = raw.split()
+    if len(parts) <= 2:
+        return raw
+    return " ".join([parts[0], *parts[2:]])
+
+
 def mode_priority(current_mode: str, candidate_mode: str) -> int | None:
     if current_mode == candidate_mode:
         return None
@@ -407,7 +418,12 @@ def mode_priority(current_mode: str, candidate_mode: str) -> int | None:
 
 def meta_matches_for_mode_comparison(current_meta: dict[str, str], candidate_meta: dict[str, str]) -> bool:
     for key in MODE_COMPARISON_META_KEYS:
-        if current_meta.get(key, "") != candidate_meta.get(key, ""):
+        current_value = current_meta.get(key, "")
+        candidate_value = candidate_meta.get(key, "")
+        if key == "uname":
+            current_value = normalized_uname_for_comparison(current_value)
+            candidate_value = normalized_uname_for_comparison(candidate_value)
+        if current_value != candidate_value:
             return False
     return True
 
@@ -469,6 +485,21 @@ def build_mode_comparison(
         kafka_meta = meta
         kafka_rows = current_by_service
 
+    http_only_rank = {
+        service: rank
+        for rank, service in enumerate(
+            sorted(http_only_rows, key=lambda service: numeric_value(http_only_rows[service], "http_reqs_rate_avg"), reverse=True),
+            start=1,
+        )
+    }
+    kafka_rank = {
+        service: rank
+        for rank, service in enumerate(
+            sorted(kafka_rows, key=lambda service: numeric_value(kafka_rows[service], "http_reqs_rate_avg"), reverse=True),
+            start=1,
+        )
+    }
+
     comparison_rows: list[dict[str, float | str]] = []
     for service in current_services:
         if service not in http_only_rows or service not in kafka_rows:
@@ -480,10 +511,14 @@ def build_mode_comparison(
         kafka_avg_ms = numeric_value(kafka_row, "http_req_duration_avg_ms_avg")
         http_only_reqs = numeric_value(http_only_row, "http_reqs_rate_avg")
         kafka_reqs = numeric_value(kafka_row, "http_reqs_rate_avg")
+        throughput_retained = safe_ratio(kafka_reqs, http_only_reqs)
+        throughput_lost = None if throughput_retained is None else 1 - throughput_retained
 
         comparison_rows.append(
             {
                 "service": service,
+                "http_only_rank": http_only_rank.get(service, 0),
+                "kafka_mode_rank": kafka_rank.get(service, 0),
                 "http_only_req_s_avg": http_only_reqs,
                 "http_only_avg_ms": http_only_avg_ms,
                 "kafka_delivery_mode": kafka_meta.get("delivery_mode", "unknown"),
@@ -491,6 +526,8 @@ def build_mode_comparison(
                 "kafka_avg_ms": kafka_avg_ms,
                 "estimated_added_kafka_latency_ms": kafka_avg_ms - http_only_avg_ms,
                 "latency_multiplier_vs_http_only": safe_ratio(kafka_avg_ms, http_only_avg_ms),
+                "throughput_retained_vs_http_only": throughput_retained,
+                "throughput_lost_vs_http_only": throughput_lost,
                 "throughput_ratio_http_only_vs_kafka": safe_ratio(http_only_reqs, kafka_reqs),
             }
         )
@@ -561,12 +598,36 @@ def write_summary_markdown(
         f"- workload: {meta.get('vus', 'unknown')} VUs for {meta.get('duration', 'unknown')} (warmup {meta.get('warmup_duration', 'unknown')})",
         f"- receiver budget: {meta.get('receiver_cpus', 'unknown')} CPU / {meta.get('receiver_memory', 'unknown')}",
         f"- kafka budget: {meta.get('kafka_cpus', 'unknown')} CPU / {meta.get('kafka_memory', 'unknown')}",
-        "",
-        "## Throughput And Normalized Efficiency",
-        "",
-        "| service | runs | req/s avg | p95 avg (ms) | req/s / receiver CPU limit | req/s / receiver GiB limit | req/s / measured stack avg core | req/s / measured stack avg GiB |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
+
+    current_mode = meta.get("delivery_mode", "unknown")
+    if current_mode == "http-only":
+        lines.extend(
+            [
+                "",
+                "- interpretation: `http-only` isolates request parsing, validation, filtering, and response handling without Kafka.",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "",
+                f"- interpretation: `{current_mode}` ranks combined HTTP + Kafka client behavior, not pure framework speed.",
+                "- interpretation: use the matched `http-only` delta section below to see how much throughput each service retained once Kafka was in the path.",
+            ]
+        )
+        if mode_comparison is None:
+            lines.append("- interpretation: no compatible matched `http-only` run was found for this summary, so raw req/s rank is easier to misread.")
+
+    lines.extend(
+        [
+            "",
+            "## Throughput And Normalized Efficiency",
+            "",
+            "| service | runs | req/s avg | p95 avg (ms) | req/s / receiver CPU limit | req/s / receiver GiB limit | req/s / measured stack avg core | req/s / measured stack avg GiB |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|",
+        ]
+    )
 
     for row in sorted_rows:
         lines.append(
@@ -586,6 +647,8 @@ def write_summary_markdown(
         [
             "",
             "## Resource Footprint",
+            "",
+            "- `docker stats` CPU percentages are per-core. On a 2 CPU container, `200%` means both CPUs were effectively saturated, so values above `100%` are expected.",
             "",
             "| service | receiver cpu avg % | receiver cpu max % | receiver mem avg MiB | receiver mem max MiB | kafka cpu max % | kafka mem max MiB |",
             "|---|---:|---:|---:|---:|---:|---:|",
@@ -614,25 +677,27 @@ def write_summary_markdown(
                     "## Matched HTTP vs Kafka Delta",
                     "",
                     f"- matched comparison run: {mode_comparison.get('matched_results_name', 'unknown')} ({mode_comparison.get('matched_delivery_mode', 'unknown')})",
-                    "- comparison basis: same git SHA, host, workload, budgets, concurrency, and shared Kafka producer tuning",
+                    "- comparison basis: same git SHA, normalized OS/kernel signature, workload, budgets, concurrency, and shared Kafka producer tuning",
+                    "- read this table before inferring framework quality from `enqueue` or `confirm` rankings.",
                     "",
-                    "| service | http-only req/s avg | kafka mode | kafka req/s avg | http-only avg ms | kafka avg ms | est. added Kafka latency (ms) | latency x vs http-only | throughput x http-only/kafka |",
-                    "|---|---:|---|---:|---:|---:|---:|---:|---:|",
+                    "| service | http-only rank | current rank | http-only req/s avg | kafka mode | kafka req/s avg | throughput retained vs http-only | throughput lost vs http-only | est. added Kafka latency (ms) | latency x vs http-only |",
+                    "|---|---:|---:|---:|---|---:|---:|---:|---:|---:|",
                 ]
             )
 
             for row in comparison_rows:
                 lines.append(
-                    "| {service} | {http_only_req_s_avg} | {kafka_delivery_mode} | {kafka_req_s_avg} | {http_only_avg_ms} | {kafka_avg_ms} | {added_latency} | {latency_multiplier} | {throughput_ratio} |".format(
+                    "| {service} | {http_only_rank} | {kafka_mode_rank} | {http_only_req_s_avg} | {kafka_delivery_mode} | {kafka_req_s_avg} | {throughput_retained} | {throughput_lost} | {added_latency} | {latency_multiplier} |".format(
                         service=row["service"],
+                        http_only_rank=int(row.get("http_only_rank", 0)),
+                        kafka_mode_rank=int(row.get("kafka_mode_rank", 0)),
                         http_only_req_s_avg=format_float(row.get("http_only_req_s_avg")),
                         kafka_delivery_mode=row.get("kafka_delivery_mode", "unknown"),
                         kafka_req_s_avg=format_float(row.get("kafka_req_s_avg")),
-                        http_only_avg_ms=format_float(row.get("http_only_avg_ms")),
-                        kafka_avg_ms=format_float(row.get("kafka_avg_ms")),
+                        throughput_retained=format_percent(row.get("throughput_retained_vs_http_only")),
+                        throughput_lost=format_percent(row.get("throughput_lost_vs_http_only")),
                         added_latency=format_float(row.get("estimated_added_kafka_latency_ms")),
                         latency_multiplier=format_float(row.get("latency_multiplier_vs_http_only")),
-                        throughput_ratio=format_float(row.get("throughput_ratio_http_only_vs_kafka")),
                     )
                 )
 
