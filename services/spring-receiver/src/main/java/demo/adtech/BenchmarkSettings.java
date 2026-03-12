@@ -26,13 +26,13 @@ public class BenchmarkSettings {
     @Autowired
     public BenchmarkSettings(Environment environment) {
         this(
-                environment.getProperty("BENCHMARK_DELIVERY_MODE"),
-                environment.getProperty("KAFKA_BOOTSTRAP_SERVERS"),
-                environment.getProperty("BENCHMARK_KAFKA_TOPIC"),
-                environment.getProperty("BENCHMARK_KAFKA_ACKS"),
-                environment.getProperty("BENCHMARK_KAFKA_LINGER_MS"),
-                environment.getProperty("BENCHMARK_KAFKA_BATCH_BYTES"),
-                environment.getProperty("BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS")
+                environment.getProperty("benchmark.delivery.mode"),
+                environment.getProperty("kafka.bootstrap.servers"),
+                environment.getProperty("benchmark.kafka.topic"),
+                environment.getProperty("benchmark.kafka.acks"),
+                environment.getProperty("benchmark.kafka.linger.ms"),
+                environment.getProperty("benchmark.kafka.batch.bytes"),
+                environment.getProperty("benchmark.kafka.request.timeout.ms")
         );
     }
 

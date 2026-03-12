@@ -8,9 +8,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Mono;
 
 import java.util.Map;
-import java.util.concurrent.CompletionException;
 
 @RestController
 public class BidReceiverController {
@@ -36,47 +36,55 @@ public class BidReceiverController {
     }
 
     @PostMapping("/bid-request")
-    public ResponseEntity<Map<String, String>> receiveBid(@RequestBody BidRequest request) {
+    public Mono<ResponseEntity<?>> receiveBid(@RequestBody Mono<BidRequest> request) {
+        return request
+                .flatMap(this::handleRequest)
+                .switchIfEmpty(Mono.just(ResponseEntity.badRequest().body(BAD_REQUEST)));
+    }
+
+    private Mono<ResponseEntity<?>> handleRequest(BidRequest request) {
         if (request.id == null || request.id.isBlank() || request.device == null
                 || (request.site == null && request.app == null)) {
-            return ResponseEntity.badRequest().body(BAD_REQUEST);
+            return response(ResponseEntity.badRequest().body(BAD_REQUEST));
         }
 
         if (request.device.lmt == 1) {
-            return ResponseEntity.noContent().build();
+            return response(ResponseEntity.noContent().build());
         }
 
         if (request.device.ip != null && request.device.ip.startsWith("10.10.")) {
-            return ResponseEntity.noContent().build();
+            return response(ResponseEntity.noContent().build());
         }
 
         if (benchmarkSettings.isHttpOnlyMode()) {
-            return ResponseEntity.ok(ACCEPTED);
+            return response(ResponseEntity.ok(ACCEPTED));
         }
 
         byte[] payload;
         try {
             payload = objectMapper.writeValueAsBytes(request);
         } catch (JsonProcessingException exception) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(SERIALIZATION_ERROR);
+            return response(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(SERIALIZATION_ERROR));
         }
 
-        try {
-            bidPublisher.publish(request.id, payload, benchmarkSettings.isConfirmDeliveryMode()).join();
-        } catch (CompletionException exception) {
-            Throwable cause = exception.getCause();
-            if (cause instanceof PublisherBackpressureException) {
-                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(KAFKA_BUFFER_FULL);
-            }
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(KAFKA_UNAVAILABLE);
-        }
-
-        return ResponseEntity.ok(ACCEPTED);
+        return bidPublisher.publish(request.id, payload, benchmarkSettings.isConfirmDeliveryMode())
+                .then(response(ResponseEntity.ok(ACCEPTED)))
+                .onErrorResume(failure -> response(mapPublisherFailure(failure)));
     }
 
     @GetMapping("/health")
-    public Map<String, String> health() {
-        return Map.of("status", "healthy");
+    public Mono<Map<String, String>> health() {
+        return Mono.just(Map.of("status", "healthy"));
+    }
+
+    private static Mono<ResponseEntity<?>> response(ResponseEntity<?> response) {
+        return Mono.just(response);
+    }
+
+    private static ResponseEntity<?> mapPublisherFailure(Throwable failure) {
+        if (failure instanceof PublisherBackpressureException) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(KAFKA_BUFFER_FULL);
+        }
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(KAFKA_UNAVAILABLE);
     }
 }
-

@@ -10,9 +10,9 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 import java.util.Properties;
-import java.util.concurrent.CompletableFuture;
 
 @Component
 public class KafkaBidPublisher implements BidPublisher {
@@ -38,42 +38,39 @@ public class KafkaBidPublisher implements BidPublisher {
     }
 
     @Override
-    public CompletableFuture<Void> publish(String key, byte[] payload, boolean confirm) {
-        if (producer == null) {
-            CompletableFuture<Void> failed = new CompletableFuture<>();
-            failed.completeExceptionally(new PublisherUnavailableException(null));
-            return failed;
-        }
-
-        ProducerRecord<String, byte[]> record = new ProducerRecord<>(settings.kafkaTopic(), key, payload);
-
-        if (!confirm) {
-            try {
-                producer.send(record);
-                return CompletableFuture.completedFuture(null);
-            } catch (RuntimeException exception) {
-                CompletableFuture<Void> failed = new CompletableFuture<>();
-                failed.completeExceptionally(new PublisherUnavailableException(exception));
-                return failed;
+    public Mono<Void> publish(String key, byte[] payload, boolean confirm) {
+        return Mono.defer(() -> {
+            if (producer == null) {
+                return Mono.error(new PublisherUnavailableException(null));
             }
-        }
 
-        CompletableFuture<Void> delivery = new CompletableFuture<>();
-        Callback callback = (metadata, exception) -> {
-            if (exception == null) {
-                delivery.complete(null);
-                return;
+            ProducerRecord<String, byte[]> record = new ProducerRecord<>(settings.kafkaTopic(), key, payload);
+            if (!confirm) {
+                return Mono.fromRunnable(() -> {
+                    try {
+                        producer.send(record);
+                    } catch (RuntimeException exception) {
+                        throw new PublisherUnavailableException(exception);
+                    }
+                });
             }
-            delivery.completeExceptionally(new PublisherBackpressureException(exception));
-        };
 
-        try {
-            producer.send(record, callback);
-        } catch (RuntimeException exception) {
-            delivery.completeExceptionally(new PublisherUnavailableException(exception));
-        }
+            return Mono.create(sink -> {
+                Callback callback = (metadata, exception) -> {
+                    if (exception == null) {
+                        sink.success();
+                        return;
+                    }
+                    sink.error(new PublisherBackpressureException(exception));
+                };
 
-        return delivery;
+                try {
+                    producer.send(record, callback);
+                } catch (RuntimeException exception) {
+                    sink.error(new PublisherUnavailableException(exception));
+                }
+            });
+        });
     }
 
     @PreDestroy
