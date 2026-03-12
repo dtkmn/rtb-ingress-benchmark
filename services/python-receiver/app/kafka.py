@@ -44,6 +44,7 @@ class KafkaBidPublisher:
             linger_ms=settings.kafka_linger_ms,
             max_batch_size=settings.kafka_batch_bytes,
             request_timeout_ms=settings.kafka_request_timeout_ms,
+            retry_backoff_ms=settings.kafka_retry_backoff_ms,
         )
 
     async def start(self) -> None:

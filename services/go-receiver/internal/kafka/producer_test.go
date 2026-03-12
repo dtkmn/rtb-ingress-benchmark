@@ -30,3 +30,15 @@ func TestParsePositiveInt(t *testing.T) {
 	t.Setenv("BENCHMARK_KAFKA_BATCH_BYTES", "weird")
 	assert.Equal(t, 42, parsePositiveInt("BENCHMARK_KAFKA_BATCH_BYTES", 42))
 }
+
+func TestLoadProducerConfigFromEnv(t *testing.T) {
+	t.Setenv("BENCHMARK_KAFKA_TOPIC", "bench-bids")
+	t.Setenv("BENCHMARK_KAFKA_RETRIES", "7")
+	t.Setenv("BENCHMARK_KAFKA_RETRY_BACKOFF_MS", "250")
+
+	config := LoadProducerConfigFromEnv()
+
+	assert.Equal(t, "bench-bids", config.Topic)
+	assert.Equal(t, 7, config.Retries)
+	assert.Equal(t, 250, config.RetryBackoffMs)
+}

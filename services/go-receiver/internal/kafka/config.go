@@ -21,11 +21,14 @@ type MessageWriter interface {
 }
 
 type ProducerConfig struct {
+	Topic            string
 	DeliveryMode     string
 	RequiredAcks     kgo.RequiredAcks
 	BatchTimeoutMs   int
 	BatchBytes       int64
 	RequestTimeoutMs int
+	Retries          int
+	RetryBackoffMs   int
 }
 
 func LoadProducerConfigFromEnv() ProducerConfig {
@@ -40,11 +43,14 @@ func LoadProducerConfigFromEnv() ProducerConfig {
 
 	acks := parseRequiredAcks(os.Getenv("BENCHMARK_KAFKA_ACKS"))
 	return ProducerConfig{
+		Topic:            parseTopic(os.Getenv("BENCHMARK_KAFKA_TOPIC")),
 		DeliveryMode:     deliveryMode,
 		RequiredAcks:     acks,
 		BatchTimeoutMs:   parsePositiveInt("BENCHMARK_KAFKA_LINGER_MS", 10),
 		BatchBytes:       int64(parsePositiveInt("BENCHMARK_KAFKA_BATCH_BYTES", 131072)),
 		RequestTimeoutMs: parsePositiveInt("BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS", 5000),
+		Retries:          parseNonNegativeInt("BENCHMARK_KAFKA_RETRIES", 5),
+		RetryBackoffMs:   parseNonNegativeInt("BENCHMARK_KAFKA_RETRY_BACKOFF_MS", 100),
 	}
 }
 
@@ -90,4 +96,27 @@ func parsePositiveInt(envName string, fallback int) int {
 	}
 
 	return value
+}
+
+func parseNonNegativeInt(envName string, fallback int) int {
+	raw := strings.TrimSpace(os.Getenv(envName))
+	if raw == "" {
+		return fallback
+	}
+
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < 0 {
+		log.Printf("Ignoring invalid %s=%q; defaulting to %d", envName, raw, fallback)
+		return fallback
+	}
+
+	return value
+}
+
+func parseTopic(raw string) string {
+	topic := strings.TrimSpace(raw)
+	if topic == "" {
+		return "bids"
+	}
+	return topic
 }

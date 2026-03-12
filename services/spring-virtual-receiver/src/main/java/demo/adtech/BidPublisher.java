@@ -1,12 +1,11 @@
 package demo.adtech;
 
 import java.io.Closeable;
-
-import reactor.core.publisher.Mono;
+import java.util.concurrent.CompletableFuture;
 
 public interface BidPublisher extends Closeable {
 
-    Mono<Void> publish(String key, byte[] payload, boolean confirm);
+    CompletableFuture<Void> publish(String key, byte[] payload, boolean confirm);
 
     @Override
     default void close() {

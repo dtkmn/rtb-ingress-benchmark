@@ -29,7 +29,8 @@ function createKafkaPublisher(settings, logger = console) {
   const producer = kafka.producer({
     allowAutoTopicCreation: false,
     retry: {
-      retries: 0,
+      retries: settings.kafkaRetries,
+      initialRetryTime: settings.kafkaRetryBackoffMs,
     },
     ...(settings.isConfirm() ? { maxInFlightRequests: 1 } : {}),
   });

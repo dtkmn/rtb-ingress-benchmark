@@ -60,6 +60,21 @@ function parsePositiveInt(raw, fallback, envName) {
   return fallback;
 }
 
+function parseNonNegativeInt(raw, fallback, envName) {
+  const candidate = String(raw ?? '').trim();
+  if (candidate === '') {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(candidate, 10);
+  if (Number.isInteger(parsed) && parsed >= 0) {
+    return parsed;
+  }
+
+  console.warn('Ignoring invalid %s=%j; defaulting to %d', envName, raw, fallback);
+  return fallback;
+}
+
 function parseWorkerCount(raw) {
   if (raw == null || String(raw).trim() === '') {
     return availableParallelism();
@@ -84,6 +99,16 @@ function loadSettings(env = process.env) {
     5000,
     'BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS'
   );
+  const kafkaRetries = parseNonNegativeInt(
+    env.BENCHMARK_KAFKA_RETRIES,
+    5,
+    'BENCHMARK_KAFKA_RETRIES'
+  );
+  const kafkaRetryBackoffMs = parseNonNegativeInt(
+    env.BENCHMARK_KAFKA_RETRY_BACKOFF_MS,
+    100,
+    'BENCHMARK_KAFKA_RETRY_BACKOFF_MS'
+  );
   const httpServerWorkers = parseWorkerCount(env.HTTP_SERVER_WORKERS);
 
   return {
@@ -92,6 +117,8 @@ function loadSettings(env = process.env) {
     kafkaTopic,
     kafkaAcks,
     kafkaRequestTimeoutMs,
+    kafkaRetries,
+    kafkaRetryBackoffMs,
     httpServerWorkers,
     usesKafka() {
       return this.deliveryMode !== DELIVERY_MODE_HTTP_ONLY;
@@ -112,6 +139,7 @@ module.exports = {
   loadSettings,
   normalizeDeliveryMode,
   parseKafkaAcks,
+  parseNonNegativeInt,
   parsePositiveInt,
   parseWorkerCount,
 };

@@ -59,6 +59,24 @@ def parse_positive_int(raw: str | None, *, fallback: int, env_name: str) -> int:
     return value
 
 
+def parse_non_negative_int(raw: str | None, *, fallback: int, env_name: str) -> int:
+    candidate = (raw or "").strip()
+    if candidate == "":
+        return fallback
+
+    try:
+        value = int(candidate)
+    except ValueError:
+        LOGGER.warning("Ignoring invalid %s=%r; defaulting to %d", env_name, raw, fallback)
+        return fallback
+
+    if value < 0:
+        LOGGER.warning("Ignoring invalid %s=%r; defaulting to %d", env_name, raw, fallback)
+        return fallback
+
+    return value
+
+
 @dataclass(frozen=True)
 class Settings:
     delivery_mode: str = DELIVERY_MODE_CONFIRM
@@ -68,6 +86,8 @@ class Settings:
     kafka_linger_ms: int = 10
     kafka_batch_bytes: int = 131072
     kafka_request_timeout_ms: int = 5000
+    kafka_retries: int = 5
+    kafka_retry_backoff_ms: int = 100
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -90,6 +110,16 @@ class Settings:
                 os.getenv("BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS"),
                 fallback=5000,
                 env_name="BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS",
+            ),
+            kafka_retries=parse_non_negative_int(
+                os.getenv("BENCHMARK_KAFKA_RETRIES"),
+                fallback=5,
+                env_name="BENCHMARK_KAFKA_RETRIES",
+            ),
+            kafka_retry_backoff_ms=parse_non_negative_int(
+                os.getenv("BENCHMARK_KAFKA_RETRY_BACKOFF_MS"),
+                fallback=100,
+                env_name="BENCHMARK_KAFKA_RETRY_BACKOFF_MS",
             ),
         )
 

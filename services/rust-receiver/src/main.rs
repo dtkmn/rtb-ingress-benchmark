@@ -83,6 +83,7 @@ impl DeliveryMode {
 struct AppState {
     producer: Option<FutureProducer>,
     delivery_mode: DeliveryMode,
+    topic: String,
 }
 
 // --- Data Models (mirroring the Go service) ---
@@ -144,6 +145,13 @@ fn kafka_acks_from_env() -> String {
     }
 }
 
+fn kafka_topic_from_env() -> String {
+    match env::var("BENCHMARK_KAFKA_TOPIC") {
+        Ok(raw) if !raw.trim().is_empty() => raw.trim().to_string(),
+        _ => "bids".to_string(),
+    }
+}
+
 fn parse_positive_u32_env(env_name: &str, fallback: u32) -> u32 {
     if let Ok(raw) = env::var(env_name) {
         if let Ok(parsed) = raw.trim().parse::<u32>() {
@@ -155,6 +163,29 @@ fn parse_positive_u32_env(env_name: &str, fallback: u32) -> u32 {
     }
 
     fallback
+}
+
+fn parse_non_negative_u32_env(env_name: &str, fallback: u32) -> u32 {
+    if let Ok(raw) = env::var(env_name) {
+        if let Ok(parsed) = raw.trim().parse::<u32>() {
+            return parsed;
+        }
+        eprintln!("Ignoring invalid {env_name}={raw:?}");
+    }
+
+    fallback
+}
+
+fn compute_message_timeout_ms(
+    request_timeout_ms: u32,
+    linger_ms: u32,
+    retries: u32,
+    retry_backoff_ms: u32,
+) -> u32 {
+    let timeout = u64::from(request_timeout_ms) * u64::from(retries + 1)
+        + u64::from(retry_backoff_ms) * u64::from(retries)
+        + u64::from(linger_ms.max(1000));
+    timeout.min(u64::from(u32::MAX)) as u32
 }
 
 fn http_workers_from_env() -> usize {
@@ -218,7 +249,7 @@ async fn receive_bid(
         }
     };
 
-    let record: FutureRecord<String, String> = FutureRecord::to("bids").payload(&payload);
+    let record: FutureRecord<String, String> = FutureRecord::to(&state.topic).payload(&payload);
     let Some(producer) = state.producer.as_ref() else {
         REQUESTS_REJECTED.inc();
         timer.observe_duration();
@@ -282,27 +313,41 @@ async fn main() -> std::io::Result<()> {
     // Get Kafka URL from environment or use a default
     let kafka_url =
         env::var("KAFKA_BOOTSTRAP_SERVERS").unwrap_or_else(|_| "localhost:9092".to_string());
+    let kafka_topic = kafka_topic_from_env();
     let delivery_mode = DeliveryMode::from_env();
     let kafka_acks = kafka_acks_from_env();
     let workers = http_workers_from_env();
     let kafka_linger_ms = parse_positive_u32_env("BENCHMARK_KAFKA_LINGER_MS", 10);
     let kafka_batch_bytes = parse_positive_u32_env("BENCHMARK_KAFKA_BATCH_BYTES", 131072);
-    let kafka_request_timeout_ms = parse_positive_u32_env("BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS", 5000);
+    let kafka_request_timeout_ms =
+        parse_positive_u32_env("BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS", 5000);
+    let kafka_retries = parse_non_negative_u32_env("BENCHMARK_KAFKA_RETRIES", 5);
+    let kafka_retry_backoff_ms =
+        parse_non_negative_u32_env("BENCHMARK_KAFKA_RETRY_BACKOFF_MS", 100);
     println!(
-        "Connecting to Kafka at {} (delivery_mode={:?}, acks={}, workers={}, linger_ms={}, batch_bytes={}, request_timeout_ms={})",
-        kafka_url, delivery_mode, kafka_acks, workers, kafka_linger_ms, kafka_batch_bytes, kafka_request_timeout_ms
+        "Connecting to Kafka at {} topic {} (delivery_mode={:?}, acks={}, workers={}, linger_ms={}, batch_bytes={}, request_timeout_ms={}, retries={}, retry_backoff_ms={})",
+        kafka_url, kafka_topic, delivery_mode, kafka_acks, workers, kafka_linger_ms, kafka_batch_bytes, kafka_request_timeout_ms, kafka_retries, kafka_retry_backoff_ms
     );
 
     let producer = if delivery_mode.uses_kafka() {
         Some(
             ClientConfig::new()
                 .set("bootstrap.servers", &kafka_url)
+                .set("client.id", "rust-receiver")
                 .set("linger.ms", kafka_linger_ms.to_string())
                 .set("batch.size", kafka_batch_bytes.to_string())
                 .set("request.timeout.ms", kafka_request_timeout_ms.to_string())
+                .set("retries", kafka_retries.to_string())
+                .set("retry.backoff.ms", kafka_retry_backoff_ms.to_string())
                 .set(
                     "message.timeout.ms",
-                    (kafka_request_timeout_ms + kafka_linger_ms.max(1000)).to_string(),
+                    compute_message_timeout_ms(
+                        kafka_request_timeout_ms,
+                        kafka_linger_ms,
+                        kafka_retries,
+                        kafka_retry_backoff_ms,
+                    )
+                    .to_string(),
                 )
                 .set("acks", &kafka_acks)
                 .set("queue.buffering.max.messages", "1000000")
@@ -317,6 +362,7 @@ async fn main() -> std::io::Result<()> {
     let state = AppState {
         producer,
         delivery_mode,
+        topic: kafka_topic,
     };
 
     // Register Prometheus metrics
@@ -384,5 +430,10 @@ mod tests {
     fn http_only_delivery_mode_is_supported() {
         assert_eq!(DeliveryMode::from_raw("http-only"), DeliveryMode::HttpOnly);
         assert!(!DeliveryMode::HttpOnly.uses_kafka());
+    }
+
+    #[test]
+    fn compute_message_timeout_respects_retry_budget() {
+        assert_eq!(compute_message_timeout_ms(5000, 10, 5, 100), 31500);
     }
 }

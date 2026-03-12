@@ -42,6 +42,12 @@ public class BidPublisher {
     @ConfigProperty(name = "benchmark.kafka.request.timeout.ms", defaultValue = "5000")
     int requestTimeoutMs;
 
+    @ConfigProperty(name = "benchmark.kafka.retries", defaultValue = "5")
+    int retries;
+
+    @ConfigProperty(name = "benchmark.kafka.retry.backoff.ms", defaultValue = "100")
+    int retryBackoffMs;
+
     @ConfigProperty(name = "benchmark.kafka.send.buffer.bytes", defaultValue = "131072")
     int sendBufferBytes;
 
@@ -57,6 +63,13 @@ public class BidPublisher {
             return;
         }
 
+        int effectiveRetries = sanitizeNonNegativeInt("BENCHMARK_KAFKA_RETRIES", retries, 5);
+        int effectiveRetryBackoffMs = sanitizeNonNegativeInt(
+                "BENCHMARK_KAFKA_RETRY_BACKOFF_MS",
+                retryBackoffMs,
+                100
+        );
+
         Properties props = new Properties();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
@@ -65,15 +78,23 @@ public class BidPublisher {
         props.put(ProducerConfig.LINGER_MS_CONFIG, lingerMs);
         props.put(ProducerConfig.BATCH_SIZE_CONFIG, batchBytes);
         props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, requestTimeoutMs);
+        props.put(ProducerConfig.RETRIES_CONFIG, effectiveRetries);
+        props.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, effectiveRetryBackoffMs);
+        props.put(
+                ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG,
+                computeDeliveryTimeoutMs(requestTimeoutMs, lingerMs, effectiveRetries, effectiveRetryBackoffMs)
+        );
         props.put(ProducerConfig.SEND_BUFFER_CONFIG, sendBufferBytes);
         props.put(ProducerConfig.RECEIVE_BUFFER_CONFIG, receiveBufferBytes);
 
         producer = new KafkaProducer<>(props);
         LOG.infof(
-                "Initialized Kafka producer for topic %s (delivery_mode=%s, acks=%s)",
+                "Initialized Kafka producer for topic %s (delivery_mode=%s, acks=%s, retries=%d, retry_backoff_ms=%d)",
                 topic,
                 benchmarkSettings.deliveryMode(),
-                acks
+                acks,
+                effectiveRetries,
+                effectiveRetryBackoffMs
         );
     }
 
@@ -118,5 +139,21 @@ public class BidPublisher {
         if (producer != null) {
             producer.close();
         }
+    }
+
+    private static int computeDeliveryTimeoutMs(int requestTimeoutMs, int lingerMs, int retries, int retryBackoffMs) {
+        long timeout = (long) requestTimeoutMs * (retries + 1L)
+                + (long) retryBackoffMs * retries
+                + Math.max(lingerMs, 1000L);
+        return (int) Math.min(Integer.MAX_VALUE, timeout);
+    }
+
+    private int sanitizeNonNegativeInt(String envName, int rawValue, int fallback) {
+        if (rawValue >= 0) {
+            return rawValue;
+        }
+
+        LOG.warnf("Ignoring invalid %s=%d; defaulting to %d", envName, rawValue, fallback);
+        return fallback;
     }
 }

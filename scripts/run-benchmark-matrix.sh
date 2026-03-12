@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-SERVICES=(${BENCHMARK_SERVICES:-quarkus-receiver quarkus-receiver-native go-receiver rust-receiver python-receiver spring-receiver node-receiver})
+SERVICES=(${BENCHMARK_SERVICES:-quarkus-receiver quarkus-receiver-native go-receiver rust-receiver python-receiver spring-receiver spring-virtual-receiver node-receiver})
 OUT_DIR="${OUT_DIR:-$ROOT_DIR/results/$(date +%Y%m%d-%H%M%S)}"
 REPEATS="${REPEATS:-3}"
 BUILD_IMAGES="${BUILD_IMAGES:-1}"
@@ -17,6 +17,14 @@ BLOCKED_IP_PERCENT="${BLOCKED_IP_PERCENT:-0}"
 DELIVERY_MODE="${BENCHMARK_DELIVERY_MODE:-confirm}"
 BENCHMARK_RECEIVER_CPUSET="${BENCHMARK_RECEIVER_CPUSET:-}"
 BENCHMARK_KAFKA_CPUSET="${BENCHMARK_KAFKA_CPUSET:-}"
+BENCHMARK_KAFKA_TOPIC="${BENCHMARK_KAFKA_TOPIC:-bids}"
+
+default_kafka_acks_for_mode() {
+  case "$DELIVERY_MODE" in
+    enqueue) echo "0" ;;
+    *) echo "1" ;;
+  esac
+}
 
 derive_receiver_parallelism() {
   awk -v raw="${BENCHMARK_RECEIVER_CPUS:-2.0}" '
@@ -41,11 +49,26 @@ DEFAULT_RECEIVER_PARALLELISM="${BENCHMARK_DEFAULT_PARALLELISM:-$(derive_receiver
 export HTTP_SERVER_WORKERS="${HTTP_SERVER_WORKERS:-$DEFAULT_RECEIVER_PARALLELISM}"
 export GOMAXPROCS="${GOMAXPROCS:-$DEFAULT_RECEIVER_PARALLELISM}"
 export QUARKUS_HTTP_IO_THREADS="${QUARKUS_HTTP_IO_THREADS:-$DEFAULT_RECEIVER_PARALLELISM}"
-export SPRING_TOMCAT_THREADS_MAX="${SPRING_TOMCAT_THREADS_MAX:-200}"
-export SPRING_TOMCAT_THREADS_MIN_SPARE="${SPRING_TOMCAT_THREADS_MIN_SPARE:-10}"
+export BENCHMARK_KAFKA_ACKS="${BENCHMARK_KAFKA_ACKS:-$(default_kafka_acks_for_mode)}"
 export BENCHMARK_KAFKA_LINGER_MS="${BENCHMARK_KAFKA_LINGER_MS:-10}"
 export BENCHMARK_KAFKA_BATCH_BYTES="${BENCHMARK_KAFKA_BATCH_BYTES:-131072}"
 export BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS="${BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS:-5000}"
+export BENCHMARK_KAFKA_RETRIES="${BENCHMARK_KAFKA_RETRIES:-5}"
+export BENCHMARK_KAFKA_RETRY_BACKOFF_MS="${BENCHMARK_KAFKA_RETRY_BACKOFF_MS:-100}"
+export BENCHMARK_KAFKA_TOPIC="${BENCHMARK_KAFKA_TOPIC:-bids}"
+export BENCHMARK_KAFKA_TOPIC_PARTITIONS="${BENCHMARK_KAFKA_TOPIC_PARTITIONS:-3}"
+export BENCHMARK_KAFKA_TOPIC_REPLICATION_FACTOR="${BENCHMARK_KAFKA_TOPIC_REPLICATION_FACTOR:-1}"
+export BENCHMARK_KAFKA_TOPIC_MIN_ISR="${BENCHMARK_KAFKA_TOPIC_MIN_ISR:-1}"
+export BENCHMARK_KAFKA_TOPIC_RETENTION_MS="${BENCHMARK_KAFKA_TOPIC_RETENTION_MS:-86400000}"
+export BENCHMARK_KAFKA_DLQ_RETENTION_MS="${BENCHMARK_KAFKA_DLQ_RETENTION_MS:-604800000}"
+export BENCHMARK_KAFKA_TOPIC_MAX_MESSAGE_BYTES="${BENCHMARK_KAFKA_TOPIC_MAX_MESSAGE_BYTES:-1048576}"
+export BENCHMARK_KAFKA_BROKER_NUM_NETWORK_THREADS="${BENCHMARK_KAFKA_BROKER_NUM_NETWORK_THREADS:-8}"
+export BENCHMARK_KAFKA_BROKER_NUM_IO_THREADS="${BENCHMARK_KAFKA_BROKER_NUM_IO_THREADS:-8}"
+export BENCHMARK_KAFKA_SOCKET_REQUEST_MAX_BYTES="${BENCHMARK_KAFKA_SOCKET_REQUEST_MAX_BYTES:-104857600}"
+
+if [[ "$DELIVERY_MODE" == "enqueue" && "${BENCHMARK_KAFKA_ACKS}" != "0" ]]; then
+  echo "warning: enqueue mode is most comparable with BENCHMARK_KAFKA_ACKS=0; using explicit BENCHMARK_KAFKA_ACKS=${BENCHMARK_KAFKA_ACKS}" >&2
+fi
 
 mkdir -p "$OUT_DIR"
 
@@ -114,6 +137,7 @@ service_url() {
     rust-receiver) echo "http://localhost:8073" ;;
     python-receiver) echo "http://localhost:8075" ;;
     spring-receiver) echo "http://localhost:8076" ;;
+    spring-virtual-receiver) echo "http://localhost:8078" ;;
     node-receiver) echo "http://localhost:8077" ;;
     *)
       echo "Unknown service: $1" >&2
@@ -160,7 +184,7 @@ docker_version=$(docker version --format '{{.Server.Version}}')
 compose_version=$(docker compose version --short)
 services=${SERVICES[*]}
 delivery_mode=$DELIVERY_MODE
-kafka_acks=${BENCHMARK_KAFKA_ACKS:-1}
+kafka_acks=${BENCHMARK_KAFKA_ACKS}
 kafka_enabled=$(if benchmark_uses_kafka; then echo true; else echo false; fi)
 repeats=$REPEATS
 build_images=$BUILD_IMAGES
@@ -174,11 +198,21 @@ http_server_workers=${HTTP_SERVER_WORKERS:-}
 default_receiver_parallelism=$DEFAULT_RECEIVER_PARALLELISM
 go_max_procs=${GOMAXPROCS:-}
 quarkus_http_io_threads=${QUARKUS_HTTP_IO_THREADS:-}
-spring_tomcat_threads_max=${SPRING_TOMCAT_THREADS_MAX:-}
-spring_tomcat_threads_min_spare=${SPRING_TOMCAT_THREADS_MIN_SPARE:-}
 kafka_linger_ms=${BENCHMARK_KAFKA_LINGER_MS:-}
 kafka_batch_bytes=${BENCHMARK_KAFKA_BATCH_BYTES:-}
 kafka_request_timeout_ms=${BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS:-}
+kafka_retries=${BENCHMARK_KAFKA_RETRIES:-}
+kafka_retry_backoff_ms=${BENCHMARK_KAFKA_RETRY_BACKOFF_MS:-}
+kafka_topic=${BENCHMARK_KAFKA_TOPIC:-}
+kafka_topic_partitions=${BENCHMARK_KAFKA_TOPIC_PARTITIONS:-}
+kafka_topic_replication_factor=${BENCHMARK_KAFKA_TOPIC_REPLICATION_FACTOR:-}
+kafka_topic_min_isr=${BENCHMARK_KAFKA_TOPIC_MIN_ISR:-}
+kafka_topic_retention_ms=${BENCHMARK_KAFKA_TOPIC_RETENTION_MS:-}
+kafka_dlq_retention_ms=${BENCHMARK_KAFKA_DLQ_RETENTION_MS:-}
+kafka_topic_max_message_bytes=${BENCHMARK_KAFKA_TOPIC_MAX_MESSAGE_BYTES:-}
+kafka_broker_num_network_threads=${BENCHMARK_KAFKA_BROKER_NUM_NETWORK_THREADS:-}
+kafka_broker_num_io_threads=${BENCHMARK_KAFKA_BROKER_NUM_IO_THREADS:-}
+kafka_socket_request_max_bytes=${BENCHMARK_KAFKA_SOCKET_REQUEST_MAX_BYTES:-}
 receiver_cpus=${BENCHMARK_RECEIVER_CPUS:-2.0}
 receiver_memory=${BENCHMARK_RECEIVER_MEMORY:-768m}
 receiver_cpuset=${BENCHMARK_RECEIVER_CPUSET:-}
@@ -194,7 +228,7 @@ fi
 if benchmark_uses_kafka; then
   docker compose up -d kafka
   wait_for_compose_health kafka
-  wait_for_kafka_topic bids
+  wait_for_kafka_topic "$BENCHMARK_KAFKA_TOPIC"
   apply_cpuset_if_requested kafka "$BENCHMARK_KAFKA_CPUSET"
   capture_container_inspect kafka
 fi

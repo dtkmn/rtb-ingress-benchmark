@@ -9,6 +9,7 @@ from app.config import (
     Settings,
     normalize_delivery_mode,
     parse_kafka_acks,
+    parse_non_negative_int,
     parse_positive_int,
 )
 from app.kafka import PublishBackpressureError, PublishUnavailableError
@@ -232,3 +233,9 @@ def test_parse_positive_int_supports_expected_values() -> None:
     assert parse_positive_int("131072", fallback=42, env_name="BENCHMARK_KAFKA_BATCH_BYTES") == 131072
     assert parse_positive_int("0", fallback=42, env_name="BENCHMARK_KAFKA_BATCH_BYTES") == 42
     assert parse_positive_int("weird", fallback=42, env_name="BENCHMARK_KAFKA_BATCH_BYTES") == 42
+
+
+def test_parse_non_negative_int_supports_expected_values() -> None:
+    assert parse_non_negative_int("5", fallback=42, env_name="BENCHMARK_KAFKA_RETRIES") == 5
+    assert parse_non_negative_int("0", fallback=42, env_name="BENCHMARK_KAFKA_RETRIES") == 0
+    assert parse_non_negative_int("-1", fallback=42, env_name="BENCHMARK_KAFKA_RETRIES") == 42

@@ -43,6 +43,7 @@ Use one mode per run and record it with the results.
 
 - The HTTP `200` is returned after the request is accepted into the local producer pipeline.
 - Recommended Kafka acknowledgement setting is `BENCHMARK_KAFKA_ACKS=0`.
+- The matrix runner defaults `BENCHMARK_KAFKA_ACKS` to `0` in this mode unless you override it explicitly.
 - Use this only when you explicitly want a fire-and-forget ingress comparison.
 
 `http-only`
@@ -56,10 +57,13 @@ Use one mode per run and record it with the results.
 Receiver services read these environment variables:
 
 - `BENCHMARK_DELIVERY_MODE=confirm|enqueue|http-only`
+- `BENCHMARK_KAFKA_TOPIC=<name>`
 - `BENCHMARK_KAFKA_ACKS=0|1|all`
 - `BENCHMARK_KAFKA_LINGER_MS=<n>`
 - `BENCHMARK_KAFKA_BATCH_BYTES=<n>`
 - `BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS=<n>`
+- `BENCHMARK_KAFKA_RETRY_BACKOFF_MS=<n>`
+- `BENCHMARK_KAFKA_RETRIES=<n>` when the client library supports an explicit retry count
 
 Worker-style runtimes support:
 
@@ -69,10 +73,8 @@ Other runtimes use their native concurrency knobs:
 
 - `GOMAXPROCS=<n>` for Go
 - `QUARKUS_HTTP_IO_THREADS=<n>` for Quarkus JVM and native
-- `SPRING_TOMCAT_THREADS_MAX=<n>`
-- `SPRING_TOMCAT_THREADS_MIN_SPARE=<n>`
 
-`HTTP_SERVER_WORKERS` is not a universal “CPU thread count”. Depending on the runtime, it can mean worker processes or worker threads. `BENCHMARK_RECEIVER_CPUS` is the container CPU budget; the concurrency knobs above control how much parallel work the HTTP stack tries to keep in flight inside that budget.
+`HTTP_SERVER_WORKERS` is not a universal “CPU thread count”. Depending on the runtime, it can mean worker processes, worker threads, or Reactor Netty I/O workers. `BENCHMARK_RECEIVER_CPUS` is the container CPU budget; the concurrency knobs above control how much parallel work the HTTP stack tries to keep in flight inside that budget.
 
 The load harness supports:
 
@@ -98,18 +100,33 @@ When these concurrency knobs are not set explicitly, the matrix runner derives a
 - `GOMAXPROCS=ceil(BENCHMARK_RECEIVER_CPUS)`
 - `QUARKUS_HTTP_IO_THREADS=ceil(BENCHMARK_RECEIVER_CPUS)`
 
-Spring MVC keeps its blocking Tomcat request pool explicit with:
+Spring WebFlux maps `HTTP_SERVER_WORKERS` to Reactor Netty’s `reactor.netty.ioWorkerCount` so its event-loop parallelism stays explicit in the matrix.
 
-- `SPRING_TOMCAT_THREADS_MAX=200`
-- `SPRING_TOMCAT_THREADS_MIN_SPARE=10`
+`spring-virtual-receiver` runs Spring MVC with `spring.threads.virtual.enabled=true`. Spring Boot notes that thread-pool tuning properties do not apply once virtual threads are enabled, so this lane relies on the container CPU limit rather than a service-level worker-count knob.
 
 Kafka producer tuning should be kept aligned across compared services where the client library allows it. This repo now treats these as the baseline producer knobs:
 
+- `BENCHMARK_KAFKA_TOPIC`
 - `BENCHMARK_KAFKA_LINGER_MS`
 - `BENCHMARK_KAFKA_BATCH_BYTES`
 - `BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS`
+- `BENCHMARK_KAFKA_RETRY_BACKOFF_MS`
+- `BENCHMARK_KAFKA_RETRIES`
 
-KafkaJS does not expose the same cross-request batching controls as the Java, Go, Rust, and aiokafka clients, so the Node lane applies the shared request timeout but can only approximate the rest.
+The Java, Go, Rust, and Spring lanes support explicit retry count and retry backoff. `aiokafka` exposes retry backoff but not a fixed retry-count knob, so the Python lane still uses `BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS` as its retry budget. KafkaJS does not expose the same cross-request batching controls as the Java, Go, Rust, and aiokafka clients, so the Node lane applies the shared request timeout and retry tuning but can only approximate the rest.
+
+The local benchmark broker also supports these topic and broker knobs:
+
+- `BENCHMARK_KAFKA_TOPIC_PARTITIONS=<n>`
+- `BENCHMARK_KAFKA_TOPIC_REPLICATION_FACTOR=<n>`
+- `BENCHMARK_KAFKA_TOPIC_MIN_ISR=<n>`
+- `BENCHMARK_KAFKA_TOPIC_RETENTION_MS=<n>`
+- `BENCHMARK_KAFKA_TOPIC_MAX_MESSAGE_BYTES=<n>`
+- `BENCHMARK_KAFKA_BROKER_NUM_NETWORK_THREADS=<n>`
+- `BENCHMARK_KAFKA_BROKER_NUM_IO_THREADS=<n>`
+- `BENCHMARK_KAFKA_SOCKET_REQUEST_MAX_BYTES=<n>`
+
+The default local Docker stack is still a single-broker Kafka cluster. That makes it easier to benchmark consistently, but it also means replication-factor settings above `1` only make sense in a different deployment topology.
 
 End-to-end sinker runs also support:
 

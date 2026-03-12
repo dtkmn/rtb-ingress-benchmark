@@ -8,6 +8,7 @@ const {
   loadSettings,
   normalizeDeliveryMode,
   parseKafkaAcks,
+  parseNonNegativeInt,
   parsePositiveInt,
   parseWorkerCount,
 } = require('../src/config');
@@ -220,6 +221,8 @@ test('normalizes delivery mode and Kafka settings', () => {
   assert.equal(parseKafkaAcks('all'), -1);
   assert.equal(parseKafkaAcks('none'), 0);
   assert.equal(parseKafkaAcks('weird'), 1);
+  assert.equal(parseNonNegativeInt('0', 42, 'BENCHMARK_KAFKA_RETRIES'), 0);
+  assert.equal(parseNonNegativeInt('weird', 42, 'BENCHMARK_KAFKA_RETRIES'), 42);
   assert.equal(parsePositiveInt('5000', 42, 'BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS'), 5000);
   assert.equal(parsePositiveInt('weird', 42, 'BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS'), 42);
   assert.equal(parseWorkerCount('2'), 2);

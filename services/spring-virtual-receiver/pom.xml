@@ -12,10 +12,10 @@
     </parent>
 
     <groupId>demo.adtech</groupId>
-    <artifactId>spring-receiver</artifactId>
+    <artifactId>spring-virtual-receiver</artifactId>
     <version>1.0.0-SNAPSHOT</version>
-    <name>spring-receiver</name>
-    <description>Spring Boot receiver benchmark baseline</description>
+    <name>spring-virtual-receiver</name>
+    <description>Spring Boot MVC receiver benchmark baseline with virtual threads</description>
 
     <properties>
         <java.version>25</java.version>
@@ -24,7 +24,7 @@
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webflux</artifactId>
+            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
