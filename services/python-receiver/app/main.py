@@ -40,9 +40,11 @@ def create_app(
         if runtime_publisher is not None:
             await runtime_publisher.start()
             LOGGER.info(
-                "Initialized Python receiver publisher (delivery_mode=%s, acks=%s)",
+                "Initialized Python receiver publisher (delivery_mode=%s, topic=%s, acks=%s, retry_backoff_ms=%s)",
                 effective_settings.delivery_mode,
+                effective_settings.kafka_topic,
                 effective_settings.kafka_acks,
+                effective_settings.kafka_retry_backoff_ms,
             )
         else:
             LOGGER.info("HTTP-only benchmark mode enabled; skipping Kafka producer initialization")
