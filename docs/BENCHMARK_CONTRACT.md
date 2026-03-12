@@ -57,10 +57,13 @@ Use one mode per run and record it with the results.
 Receiver services read these environment variables:
 
 - `BENCHMARK_DELIVERY_MODE=confirm|enqueue|http-only`
+- `BENCHMARK_KAFKA_TOPIC=<name>`
 - `BENCHMARK_KAFKA_ACKS=0|1|all`
 - `BENCHMARK_KAFKA_LINGER_MS=<n>`
 - `BENCHMARK_KAFKA_BATCH_BYTES=<n>`
 - `BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS=<n>`
+- `BENCHMARK_KAFKA_RETRY_BACKOFF_MS=<n>`
+- `BENCHMARK_KAFKA_RETRIES=<n>` when the client library supports an explicit retry count
 
 Worker-style runtimes support:
 
@@ -103,11 +106,27 @@ Spring WebFlux maps `HTTP_SERVER_WORKERS` to Reactor Netty’s `reactor.netty.io
 
 Kafka producer tuning should be kept aligned across compared services where the client library allows it. This repo now treats these as the baseline producer knobs:
 
+- `BENCHMARK_KAFKA_TOPIC`
 - `BENCHMARK_KAFKA_LINGER_MS`
 - `BENCHMARK_KAFKA_BATCH_BYTES`
 - `BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS`
+- `BENCHMARK_KAFKA_RETRY_BACKOFF_MS`
+- `BENCHMARK_KAFKA_RETRIES`
 
-KafkaJS does not expose the same cross-request batching controls as the Java, Go, Rust, and aiokafka clients, so the Node lane applies the shared request timeout but can only approximate the rest.
+The Java, Go, Rust, and Spring lanes support explicit retry count and retry backoff. `aiokafka` exposes retry backoff but not a fixed retry-count knob, so the Python lane still uses `BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS` as its retry budget. KafkaJS does not expose the same cross-request batching controls as the Java, Go, Rust, and aiokafka clients, so the Node lane applies the shared request timeout and retry tuning but can only approximate the rest.
+
+The local benchmark broker also supports these topic and broker knobs:
+
+- `BENCHMARK_KAFKA_TOPIC_PARTITIONS=<n>`
+- `BENCHMARK_KAFKA_TOPIC_REPLICATION_FACTOR=<n>`
+- `BENCHMARK_KAFKA_TOPIC_MIN_ISR=<n>`
+- `BENCHMARK_KAFKA_TOPIC_RETENTION_MS=<n>`
+- `BENCHMARK_KAFKA_TOPIC_MAX_MESSAGE_BYTES=<n>`
+- `BENCHMARK_KAFKA_BROKER_NUM_NETWORK_THREADS=<n>`
+- `BENCHMARK_KAFKA_BROKER_NUM_IO_THREADS=<n>`
+- `BENCHMARK_KAFKA_SOCKET_REQUEST_MAX_BYTES=<n>`
+
+The default local Docker stack is still a single-broker Kafka cluster. That makes it easier to benchmark consistently, but it also means replication-factor settings above `1` only make sense in a different deployment topology.
 
 End-to-end sinker runs also support:
 
