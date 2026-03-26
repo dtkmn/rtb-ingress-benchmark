@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Benchmark Methodology</title>
+    <meta
+      name="description"
+      content="Methodology and interpretation guide for the RTB Ingress Benchmark dashboard."
+    />
+    <link rel="stylesheet" href="../assets/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand-block">
+        <p class="eyebrow">Methodology</p>
+        <h1>How to read these rankings</h1>
+        <p class="lede">
+          This dashboard is intentionally mode-specific. It is designed to clarify tradeoffs, not
+          flatten them into one universal winner board.
+        </p>
+      </div>
+      <nav class="top-nav">
+        <a href="../">Dashboard</a>
+        <a href="../history/">History</a>
+        <a href="./">Methodology</a>
+        <a href="https://github.com/dtkmn/rtb-ingress-benchmark">Repo</a>
+      </nav>
+    </header>
+
+    <main class="page-shell">
+      <section class="panel prose-panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Benchmark Modes</p>
+            <h2>Three modes, three different questions</h2>
+          </div>
+        </div>
+        <div class="mode-explainer-grid">
+          <article class="mode-card mode-confirm">
+            <h3>Confirm</h3>
+            <p>
+              Measures combined HTTP handling plus Kafka delivery confirmation. Useful for more
+              conservative ingress behavior where the broker stays in the request path.
+            </p>
+          </article>
+          <article class="mode-card mode-http-only">
+            <h3>HTTP-only</h3>
+            <p>
+              Measures request parsing, validation, filtering, and response handling without Kafka.
+              This is the cleanest read on framework/runtime overhead.
+            </p>
+          </article>
+          <article class="mode-card mode-enqueue">
+            <h3>Enqueue</h3>
+            <p>
+              Measures HTTP handling plus client enqueue/fire-and-forget behavior. Faster than
+              confirm, but not equivalent to durable end-to-end delivery.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel prose-panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Fairness Controls</p>
+            <h2>What is held constant</h2>
+          </div>
+        </div>
+        <ul class="notes-list">
+          <li>Workload shape, service set, CPU budget, memory budget, and Kafka broker budget.</li>
+          <li>Explicit concurrency knobs such as `HTTP_SERVER_WORKERS`, `GOMAXPROCS`, and Quarkus I/O threads.</li>
+          <li>Shared Kafka producer tuning where the client library allows it.</li>
+          <li>Mode-specific rankings instead of one global leaderboard.</li>
+        </ul>
+      </section>
+
+      <section class="panel prose-panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Read Carefully</p>
+            <h2>What these rankings do not mean</h2>
+          </div>
+        </div>
+        <ul class="notes-list">
+          <li>They are not universal backend rankings.</li>
+          <li>They do not replace workload-specific capacity testing on production-like infrastructure.</li>
+          <li>They do not make startup time, memory footprint, and steady-state throughput interchangeable.</li>
+          <li>They do not justify language-war conclusions without looking at bottlenecks and tradeoffs.</li>
+        </ul>
+        <p class="methodology-links">
+          Canonical repo docs:
+          <a href="https://github.com/dtkmn/rtb-ingress-benchmark/blob/main/docs/BENCHMARK_CONTRACT.md"
+            >Benchmark Contract</a
+          >
+          ·
+          <a href="https://github.com/dtkmn/rtb-ingress-benchmark/blob/main/docs/BENCHMARK_HISTORY.md"
+            >Benchmark History</a
+          >
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

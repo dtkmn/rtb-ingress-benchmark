@@ -1,4 +1,25 @@
-# **Quarkus Native Demo: High-Velocity Bid Receiver**
+# **RTB Ingress Benchmark Harness**
+
+A living benchmark harness for RTB-style ingress services across popular backend runtimes and frameworks.
+
+## **Latest Verified Benchmark Snapshot**
+
+This repo is maintained as a living benchmark harness, not a permanent winner board.
+
+- **Snapshot date:** 2026-03-12
+- **Git SHA:** `7432aed42fb6cfee1d6844334ea4ba3422837a06`
+- **Baseline modes:** `http-only`, `confirm`, `enqueue`
+- **Workload:** `100` VUs for `30s` with `10s` warmup
+- **Budget:** receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g`
+- **Fairness controls:** `HTTP_SERVER_WORKERS=2`, `GOMAXPROCS=2`, `QUARKUS_HTTP_IO_THREADS=2`, Kafka `linger=10ms`, `batch=131072`, `request_timeout=5000ms`, `retries=5`, `retry_backoff=100ms`
+
+Current takeaways from that baseline:
+
+- In `http-only`, Quarkus JVM topped raw throughput in this run; Rust and Go followed.
+- In `confirm`, Go led raw throughput, while Rust, Spring virtual threads, Spring WebFlux, Quarkus Native, and Quarkus JVM formed a relatively tight middle pack.
+- Cross-mode rank changes were material once Kafka confirmation stayed in the request path; the published dashboard makes those mode-specific rankings much easier to compare cleanly.
+
+For the published snapshot data, see the GitHub Pages dashboard and the committed dashboard data snapshot in `site/src/data/site-data.json`. For the rules behind these runs, see [docs/BENCHMARK_CONTRACT.md](docs/BENCHMARK_CONTRACT.md). For the monthly timeline and update policy, see [docs/BENCHMARK_HISTORY.md](docs/BENCHMARK_HISTORY.md).
 
 ## **1\. Business Case**
 
@@ -208,7 +229,7 @@ This project includes a production-ready Helm chart for deploying to any Kuberne
 kubectl create namespace adtech-demo
 
 # Install the Helm chart
-helm install quarkus-adtech-demo ./helm/quarkus-adtech-demo \
+helm install rtb-ingress-benchmark ./helm/rtb-ingress-benchmark \
   --namespace adtech-demo
 
 # Check deployment status
@@ -233,14 +254,14 @@ kubectl apply -f - <<EOF
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: quarkus-adtech-demo
+  name: rtb-ingress-benchmark
   namespace: argocd
 spec:
   project: default
   source:
-    repoURL: https://github.com/dtkmn/quarkus-adtech-demo
+    repoURL: https://github.com/dtkmn/rtb-ingress-benchmark
     targetRevision: dev
-    path: helm/quarkus-adtech-demo
+    path: helm/rtb-ingress-benchmark
   destination:
     server: https://kubernetes.default.svc
     namespace: adtech-demo
@@ -270,7 +291,7 @@ kind load docker-image rust-receiver:latest --name adtech-demo
 kind load docker-image quarkus-sinker:latest --name adtech-demo
 
 # Deploy with Helm
-helm install quarkus-adtech-demo ./helm/quarkus-adtech-demo \
+helm install rtb-ingress-benchmark ./helm/rtb-ingress-benchmark \
   --namespace adtech-demo --create-namespace
 ```
 
@@ -411,6 +432,17 @@ Each matrix run now produces collated artifacts under `results/<timestamp>/`, in
 - `req/s / measured stack avg core`
 - `req/s / measured stack avg GiB`
 - estimated Kafka-added latency per service
+
+To keep the README readable, only the latest verified baseline snapshot should live near the top of this file. Put monthly updates and historical snapshots in [docs/BENCHMARK_HISTORY.md](docs/BENCHMARK_HISTORY.md).
+
+The repo also ships a static GitHub Pages dashboard under `site/`. Refresh it locally after a trusted benchmark run with:
+
+```bash
+python3 scripts/build_benchmark_site.py
+python3 -m http.server -d site/dist 8000
+```
+
+The generated Pages artifact lives in `site/dist/`, while the committed dashboard data snapshot is `site/src/data/site-data.json`.
 
 ## **9\. Docker Image Optimization**
 
