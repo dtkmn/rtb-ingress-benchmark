@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Benchmark History</title>
+    <meta
+      name="description"
+      content="Historical benchmark snapshots for the RTB Ingress Benchmark dashboard."
+    />
+    <link rel="stylesheet" href="../assets/styles.css" />
+  </head>
+  <body data-page="history" data-data-path="../data/site-data.json">
+    <header class="site-header">
+      <div class="brand-block">
+        <p class="eyebrow">Historical Snapshots</p>
+        <h1>Benchmark History</h1>
+        <p class="lede">
+          Every published snapshot, with links back to the dashboard view and raw result artifacts.
+        </p>
+      </div>
+      <nav class="top-nav">
+        <a href="../">Dashboard</a>
+        <a href="./">History</a>
+        <a href="../methodology/">Methodology</a>
+        <a href="https://github.com/dtkmn/rtb-ingress-benchmark">Repo</a>
+      </nav>
+    </header>
+
+    <main class="page-shell">
+      <section class="panel context-panel" id="history-context"></section>
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Snapshot Archive</p>
+            <h2>Published result folders</h2>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="history-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Mode</th>
+                <th>Git</th>
+                <th>Top throughput</th>
+                <th>Workload</th>
+                <th>Links</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="../assets/app.js"></script>
+  </body>
+</html>
