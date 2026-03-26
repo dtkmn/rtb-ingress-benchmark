@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     app: postgresql
-    {{- include "quarkus-adtech-demo.labels" . | nindent 4 }}
+    {{- include "rtb-ingress-benchmark.labels" . | nindent 4 }}
 data:
   init.sql: |
     CREATE TABLE IF NOT EXISTS bids (
@@ -33,7 +33,7 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     app: postgresql
-    {{- include "quarkus-adtech-demo.labels" . | nindent 4 }}
+    {{- include "rtb-ingress-benchmark.labels" . | nindent 4 }}
 spec:
   type: ClusterIP
   ports:
@@ -51,7 +51,7 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     app: postgresql
-    {{- include "quarkus-adtech-demo.labels" . | nindent 4 }}
+    {{- include "rtb-ingress-benchmark.labels" . | nindent 4 }}
 spec:
   serviceName: postgres
   replicas: {{ .Values.postgresql.replicas }}

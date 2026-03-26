@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     app: prometheus
-    {{- include "quarkus-adtech-demo.labels" . | nindent 4 }}
+    {{- include "rtb-ingress-benchmark.labels" . | nindent 4 }}
 data:
   prometheus.yml: |
     global:
@@ -104,7 +104,7 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     app: prometheus
-    {{- include "quarkus-adtech-demo.labels" . | nindent 4 }}
+    {{- include "rtb-ingress-benchmark.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.serviceType }}
   {{- if eq .Values.serviceType "NodePort" }}
@@ -131,7 +131,7 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     app: prometheus
-    {{- include "quarkus-adtech-demo.labels" . | nindent 4 }}
+    {{- include "rtb-ingress-benchmark.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.prometheus.replicas }}
   selector:
@@ -198,7 +198,7 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     app: prometheus
-    {{- include "quarkus-adtech-demo.labels" . | nindent 4 }}
+    {{- include "rtb-ingress-benchmark.labels" . | nindent 4 }}
 spec:
   accessModes:
     - ReadWriteOnce

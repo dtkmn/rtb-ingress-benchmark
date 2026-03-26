@@ -4,7 +4,7 @@ metadata:
   name: kafka-topic-init
   labels:
     app: kafka-topic-init
-    {{- include "quarkus-adtech-demo.labels" . | nindent 4 }}
+    {{- include "rtb-ingress-benchmark.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "0"

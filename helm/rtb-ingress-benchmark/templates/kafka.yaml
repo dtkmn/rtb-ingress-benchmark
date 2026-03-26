@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     app: kafka
-    {{- include "quarkus-adtech-demo.labels" . | nindent 4 }}
+    {{- include "rtb-ingress-benchmark.labels" . | nindent 4 }}
 spec:
   type: ClusterIP
   clusterIP: None
@@ -29,7 +29,7 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     app: kafka
-    {{- include "quarkus-adtech-demo.labels" . | nindent 4 }}
+    {{- include "rtb-ingress-benchmark.labels" . | nindent 4 }}
 spec:
   serviceName: kafka
   replicas: {{ .Values.kafka.replicas }}

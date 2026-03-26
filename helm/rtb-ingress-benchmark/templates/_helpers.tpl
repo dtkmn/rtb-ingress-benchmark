@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "quarkus-adtech-demo.name" -}}
+{{- define "rtb-ingress-benchmark.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "quarkus-adtech-demo.fullname" -}}
+{{- define "rtb-ingress-benchmark.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,16 +24,16 @@ Create a default fully qualified app name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "quarkus-adtech-demo.chart" -}}
+{{- define "rtb-ingress-benchmark.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "quarkus-adtech-demo.labels" -}}
-helm.sh/chart: {{ include "quarkus-adtech-demo.chart" . }}
-{{ include "quarkus-adtech-demo.selectorLabels" . }}
+{{- define "rtb-ingress-benchmark.labels" -}}
+helm.sh/chart: {{ include "rtb-ingress-benchmark.chart" . }}
+{{ include "rtb-ingress-benchmark.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -43,17 +43,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "quarkus-adtech-demo.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "quarkus-adtech-demo.name" . }}
+{{- define "rtb-ingress-benchmark.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "rtb-ingress-benchmark.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "quarkus-adtech-demo.serviceAccountName" -}}
+{{- define "rtb-ingress-benchmark.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "quarkus-adtech-demo.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "rtb-ingress-benchmark.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}

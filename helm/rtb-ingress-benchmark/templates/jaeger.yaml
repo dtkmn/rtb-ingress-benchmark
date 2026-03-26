@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     app: jaeger
-    {{- include "quarkus-adtech-demo.labels" . | nindent 4 }}
+    {{- include "rtb-ingress-benchmark.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.serviceType }}
   {{- if eq .Values.serviceType "NodePort" }}
@@ -49,7 +49,7 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     app: jaeger
-    {{- include "quarkus-adtech-demo.labels" . | nindent 4 }}
+    {{- include "rtb-ingress-benchmark.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.jaeger.replicas }}
   selector:

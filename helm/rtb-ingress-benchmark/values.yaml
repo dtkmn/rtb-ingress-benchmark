@@ -1,4 +1,4 @@
-# Default values for quarkus-adtech-demo
+# Default values for rtb-ingress-benchmark
 
 # Global settings
 namespace: adtech-demo
