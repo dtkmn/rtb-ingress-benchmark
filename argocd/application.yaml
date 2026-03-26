@@ -14,15 +14,15 @@ spec:
   source:
     # Path to Helm chart in the Git repository
     # For local development, you can use the local path after pushing to Git
-    # repoURL: https://github.com/dtkmn/quarkus-adtech-demo.git
+    # repoURL: https://github.com/dtkmn/rtb-ingress-benchmark.git
     # targetRevision: dev
-    # path: helm/quarkus-adtech-demo
+    # path: helm/rtb-ingress-benchmark
     
     # For now, using local Helm chart (requires manual helm template)
     # You should push this to Git and use the Git URL above for true GitOps
-    repoURL: https://github.com/dtkmn/quarkus-adtech-demo.git
+    repoURL: https://github.com/dtkmn/rtb-ingress-benchmark.git
     targetRevision: HEAD  # or specify branch like 'dev'
-    path: helm/quarkus-adtech-demo
+    path: helm/rtb-ingress-benchmark
     
     # Helm specific configuration
     helm:

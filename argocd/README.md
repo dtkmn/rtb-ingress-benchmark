@@ -1,6 +1,6 @@
 # ArgoCD Setup for AdTech Demo
 
-This directory contains ArgoCD configuration for managing the Quarkus AdTech Demo application using GitOps principles.
+This directory contains ArgoCD configuration for managing the RTB Ingress Benchmark application using GitOps principles.
 
 ## Prerequisites
 
@@ -78,9 +78,9 @@ kubectl get application -n argocd -w
    - **Application Name**: `adtech-demo`
    - **Project**: `default`
    - **Sync Policy**: `Automatic`
-   - **Repository URL**: `https://github.com/dtkmn/quarkus-adtech-demo.git`
+   - **Repository URL**: `https://github.com/dtkmn/rtb-ingress-benchmark.git`
    - **Revision**: `dev` (or `HEAD`)
-   - **Path**: `helm/quarkus-adtech-demo`
+   - **Path**: `helm/rtb-ingress-benchmark`
    - **Cluster**: `https://kubernetes.default.svc`
    - **Namespace**: `adtech-demo`
 4. Click **"CREATE"**
@@ -89,8 +89,8 @@ kubectl get application -n argocd -w
 
 ```bash
 argocd app create adtech-demo \
-  --repo https://github.com/dtkmn/quarkus-adtech-demo.git \
-  --path helm/quarkus-adtech-demo \
+  --repo https://github.com/dtkmn/rtb-ingress-benchmark.git \
+  --path helm/rtb-ingress-benchmark \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace adtech-demo \
   --revision dev \
@@ -131,7 +131,7 @@ argocd app logs adtech-demo --follow
 
 To update the application:
 
-1. Modify `helm/quarkus-adtech-demo/values.yaml`
+1. Modify `helm/rtb-ingress-benchmark/values.yaml`
 2. Commit and push changes
 3. ArgoCD will automatically detect and sync (if auto-sync is enabled)
 
