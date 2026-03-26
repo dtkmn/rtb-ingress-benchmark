@@ -8,7 +8,7 @@ This repo is maintained as a living benchmark harness, not a permanent winner bo
 
 - **Snapshot date:** 2026-03-12
 - **Git SHA:** `7432aed42fb6cfee1d6844334ea4ba3422837a06`
-- **Baseline runs:** [`http-only`](results/20260312-190020/summary.md), [`confirm`](results/20260312-184014/summary.md), [`enqueue`](results/20260312-192216/summary.md)
+- **Baseline modes:** `http-only`, `confirm`, `enqueue`
 - **Workload:** `100` VUs for `30s` with `10s` warmup
 - **Budget:** receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g`
 - **Fairness controls:** `HTTP_SERVER_WORKERS=2`, `GOMAXPROCS=2`, `QUARKUS_HTTP_IO_THREADS=2`, Kafka `linger=10ms`, `batch=131072`, `request_timeout=5000ms`, `retries=5`, `retry_backoff=100ms`
@@ -17,9 +17,9 @@ Current takeaways from that baseline:
 
 - In `http-only`, Quarkus JVM topped raw throughput in this run; Rust and Go followed.
 - In `confirm`, Go led raw throughput, while Rust, Spring virtual threads, Spring WebFlux, Quarkus Native, and Quarkus JVM formed a relatively tight middle pack.
-- Cross-mode rank changes were material once Kafka confirmation stayed in the request path; the matched delta in the `http-only` summary is the fastest way to understand what moved.
+- Cross-mode rank changes were material once Kafka confirmation stayed in the request path; the published dashboard makes those mode-specific rankings much easier to compare cleanly.
 
-For the rules behind these runs, see [docs/BENCHMARK_CONTRACT.md](docs/BENCHMARK_CONTRACT.md). For the monthly timeline and update policy, see [docs/BENCHMARK_HISTORY.md](docs/BENCHMARK_HISTORY.md).
+For the published snapshot data, see the GitHub Pages dashboard and the committed dashboard data snapshot in `site/src/data/site-data.json`. For the rules behind these runs, see [docs/BENCHMARK_CONTRACT.md](docs/BENCHMARK_CONTRACT.md). For the monthly timeline and update policy, see [docs/BENCHMARK_HISTORY.md](docs/BENCHMARK_HISTORY.md).
 
 ## **1\. Business Case**
 
