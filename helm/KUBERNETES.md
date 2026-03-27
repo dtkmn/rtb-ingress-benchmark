@@ -1,6 +1,6 @@
 # Kubernetes Deployment with Helm
 
-This guide will help you deploy the Quarkus AdTech Demo to a local Kubernetes cluster using kind (Kubernetes in Docker) and Helm.
+This guide will help you deploy the RTB Ingress Benchmark harness to a local Kubernetes cluster using kind (Kubernetes in Docker) and Helm.
 
 ## Prerequisites
 
@@ -98,10 +98,10 @@ Deploy the entire application stack using Helm:
 
 ```bash
 # Install the Helm chart
-helm install adtech-demo ./helm/quarkus-adtech-demo
+helm install rtb-ingress-benchmark ./helm/rtb-ingress-benchmark
 
 # Or use a custom namespace
-helm install adtech-demo ./helm/quarkus-adtech-demo --create-namespace --namespace adtech-demo
+helm install rtb-ingress-benchmark ./helm/rtb-ingress-benchmark --create-namespace --namespace adtech-demo
 
 # Watch the deployment progress
 kubectl get pods -n adtech-demo -w
@@ -237,21 +237,21 @@ SELECT * FROM bids ORDER BY created_at DESC LIMIT 10;
 
 ### Customize Values
 
-You can customize the deployment by editing `helm/quarkus-adtech-demo/values.yaml` or using `--set` flags:
+You can customize the deployment by editing `helm/rtb-ingress-benchmark/values.yaml` or using `--set` flags:
 
 ```bash
 # Increase replicas
-helm upgrade adtech-demo ./helm/quarkus-adtech-demo \
+helm upgrade rtb-ingress-benchmark ./helm/rtb-ingress-benchmark \
   --set quarkusReceiver.replicas=3 \
   --set goReceiver.replicas=3
 
 # Adjust resources
-helm upgrade adtech-demo ./helm/quarkus-adtech-demo \
+helm upgrade rtb-ingress-benchmark ./helm/rtb-ingress-benchmark \
   --set quarkusReceiver.resources.requests.memory=1Gi \
   --set quarkusReceiver.resources.limits.memory=2Gi
 
 # Disable a service
-helm upgrade adtech-demo ./helm/quarkus-adtech-demo \
+helm upgrade rtb-ingress-benchmark ./helm/rtb-ingress-benchmark \
   --set rustReceiver.enabled=false
 ```
 
@@ -260,7 +260,7 @@ helm upgrade adtech-demo ./helm/quarkus-adtech-demo \
 By default, the chart uses `standard` storage class. To use a different one:
 
 ```bash
-helm upgrade adtech-demo ./helm/quarkus-adtech-demo \
+helm upgrade rtb-ingress-benchmark ./helm/rtb-ingress-benchmark \
   --set postgresql.persistence.storageClass=local-path \
   --set kafka.persistence.storageClass=local-path
 ```
@@ -352,7 +352,7 @@ kind delete cluster --name adtech-demo
    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
    
    # Enable ingress in values.yaml
-   helm upgrade adtech-demo ./helm/quarkus-adtech-demo \
+   helm upgrade rtb-ingress-benchmark ./helm/rtb-ingress-benchmark \
      --set ingress.enabled=true
    ```
 

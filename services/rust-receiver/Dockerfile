@@ -1,5 +1,5 @@
 # --- Stage 1: Build the Rust application ---
-FROM rust:1.93-bullseye AS builder
+FROM rust:1.94-bullseye AS builder
 
 # Install build dependencies for rdkafka
 RUN apt-get update && apt-get install -y build-essential librdkafka-dev pkg-config && rm -rf /var/lib/apt/lists/*

@@ -3,7 +3,7 @@
 ## Prerequisites
 - Docker Desktop running
 - 8GB+ RAM available
-- Ports available: 8070-8074, 9090, 9092, 3000, 5432, 9000
+- Ports available: 8070-8077, 9090, 9092, 3000, 5432, 9000
 
 ## Testing with Docker Compose
 
@@ -91,7 +91,7 @@ chmod +x scripts/test-kraft-stack.sh
 
 This will:
 - ✅ Start all services
-- ✅ Test all 4 receivers (Quarkus JVM, Native, Go, Rust)
+- ✅ Test the full receiver set, including Python, Spring Boot, and Node/Fastify
 - ✅ Verify Kafka messages
 - ✅ Check database persistence
 - ✅ Show monitoring URLs
@@ -108,13 +108,51 @@ Once everything is running:
 ## Performance Testing
 
 ```bash
-# Load test with k6
-k6 run --vus 100 --duration 30s k6/load-test.js
+# Manual k6 run
+BASE_URL=http://localhost:8070 VUS=100 DURATION=30s k6 run k6/load-test.js
 
-# Or test different receivers
-BASE_URL=http://localhost:8072 k6 run k6/load-test.js  # Go
-BASE_URL=http://localhost:8073 k6 run k6/load-test.js  # Rust
+# Run the full receiver matrix with benchmark defaults
+scripts/run-benchmark-matrix.sh
+
+# Fire-and-forget mode must be explicit
+BENCHMARK_DELIVERY_MODE=enqueue BENCHMARK_KAFKA_ACKS=0 scripts/run-benchmark-matrix.sh
+
+# HTTP-only mode isolates framework and JSON cost from Kafka
+BENCHMARK_DELIVERY_MODE=http-only scripts/run-benchmark-matrix.sh
+
+# Tighten the local benchmark budget explicitly
+BENCHMARK_RECEIVER_CPUS=1.5 BENCHMARK_RECEIVER_MEMORY=512m scripts/run-benchmark-matrix.sh
 ```
+
+`results/<timestamp>/summary.md` now includes normalized metrics in addition to raw throughput so you can compare both winner-by-throughput and winner-by-efficiency. When a compatible opposite-mode run exists, the collator also adds a matched mode-delta section and writes `mode-comparison.csv`.
+
+For tighter apples-to-apples runs, make concurrency knobs explicit instead of relying on framework defaults:
+
+```bash
+HTTP_SERVER_WORKERS=2 \
+GOMAXPROCS=2 \
+QUARKUS_HTTP_IO_THREADS=2 \
+SPRING_TOMCAT_THREADS_MAX=200 \
+SPRING_TOMCAT_THREADS_MIN_SPARE=10 \
+scripts/run-benchmark-matrix.sh
+```
+
+`HTTP_SERVER_WORKERS` is a runtime concurrency knob, not a universal CPU-thread setting. Python and Node use worker processes, Rust uses worker threads, and the actual CPU cap still comes from `BENCHMARK_RECEIVER_CPUS`.
+
+For Kafka-in-the-path runs, keep the producer knobs explicit too:
+
+```bash
+BENCHMARK_KAFKA_LINGER_MS=10 \
+BENCHMARK_KAFKA_BATCH_BYTES=131072 \
+BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS=5000 \
+scripts/run-benchmark-matrix.sh
+```
+
+The default matrix now includes:
+
+- `python-receiver` on port `8075`
+- `spring-receiver` on port `8076`
+- `node-receiver` on port `8077`
 
 ## Troubleshooting
 

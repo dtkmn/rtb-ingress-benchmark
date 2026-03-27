@@ -2,6 +2,7 @@ package demo.adtech;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.Topology;
@@ -17,6 +18,9 @@ public class TopologyProducer {
 
     @ConfigProperty(name = "kafka-streams.topics-in")
     String inputTopic;
+
+    @Inject
+    DeadLetterQueueService dlqService;
 
     /**
      * This is the core logic of the Kafka Streams application.
@@ -42,8 +46,12 @@ public class TopologyProducer {
                     try {
                         saveToDatabase(request);
                     } catch (Exception e) {
-                        // In a real app, send this to a "Dead Letter Queue" (DLQ)
-                        LOG.errorf(e, "Failed to save bid %s to database.", request.id);
+                        if (dlqService.isEnabled()) {
+                            LOG.errorf(e, "Failed to save bid %s to database. Sending to DLQ.", request.id);
+                            dlqService.sendToDeadLetterQueue(request, e, "DATABASE_PERSIST");
+                        } else {
+                            LOG.errorf(e, "Failed to save bid %s to database. DLQ disabled.", request.id);
+                        }
                     }
                 });
 

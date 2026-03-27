@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RTB Ingress Benchmark</title>
+    <meta
+      name="description"
+      content="Mode-specific backend benchmark rankings for an RTB-style ingress workload."
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body data-page="dashboard" data-data-path="data/site-data.json">
+    <header class="site-header">
+      <div class="brand-block">
+        <p class="eyebrow">GitHub Pages Dashboard</p>
+        <h1>RTB Ingress Benchmark</h1>
+        <p class="lede">
+          Latest verified rankings by benchmark mode. Fast to scan, harder to misread.
+        </p>
+      </div>
+      <nav class="top-nav">
+        <a href="./">Dashboard</a>
+        <a href="history/">History</a>
+        <a href="methodology/">Methodology</a>
+        <a href="https://github.com/dtkmn/rtb-ingress-benchmark">Repo</a>
+      </nav>
+    </header>
+
+    <main class="page-shell">
+      <section class="panel context-panel" id="context-panel"></section>
+
+      <section class="panel toolbar-panel">
+        <div class="mode-tabs" id="mode-tabs"></div>
+        <div class="toolbar-row">
+          <label class="field-group">
+            <span>Snapshot</span>
+            <select id="snapshot-select"></select>
+          </label>
+        </div>
+      </section>
+
+      <section class="metric-grid" id="metric-cards"></section>
+
+      <section class="content-grid">
+        <div class="panel">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Ranking Table</p>
+              <h2>Latest ranking for the selected mode</h2>
+            </div>
+            <div class="sort-controls" id="sort-controls"></div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table" id="ranking-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Service</th>
+                  <th>req/s</th>
+                  <th>p95</th>
+                  <th>req/s / CPU limit</th>
+                  <th>Mem avg</th>
+                  <th>CPU avg</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <aside class="panel side-panel">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Interpretation</p>
+              <h2>What this mode tells you</h2>
+            </div>
+          </div>
+          <ul class="notes-list" id="interpretation-list"></ul>
+          <div class="mini-meta" id="snapshot-meta"></div>
+        </aside>
+      </section>
+
+      <section class="panel" id="delta-panel"></section>
+
+      <section class="panel" id="recent-panel"></section>
+    </main>
+
+    <script type="module" src="assets/app.js"></script>
+  </body>
+</html>

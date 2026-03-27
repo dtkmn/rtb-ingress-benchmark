@@ -1,0 +1,87 @@
+{{- if .Values.quarkusSinker.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: quarkus-sinker
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: quarkus-sinker
+    {{- include "rtb-ingress-benchmark.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.serviceType }}
+  {{- if eq .Values.serviceType "NodePort" }}
+  ports:
+    - name: http
+      port: {{ .Values.quarkusSinker.port }}
+      targetPort: 8080
+      nodePort: 30074
+      protocol: TCP
+  {{- else }}
+  ports:
+    - name: http
+      port: {{ .Values.quarkusSinker.port }}
+      targetPort: 8080
+      protocol: TCP
+  {{- end }}
+  selector:
+    app: quarkus-sinker
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quarkus-sinker
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: quarkus-sinker
+    {{- include "rtb-ingress-benchmark.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.quarkusSinker.replicas }}
+  selector:
+    matchLabels:
+      app: quarkus-sinker
+  template:
+    metadata:
+      labels:
+        app: quarkus-sinker
+    spec:
+      containers:
+        - name: quarkus-sinker
+          image: {{ .Values.quarkusSinker.image }}
+          imagePullPolicy: {{ .Values.applicationImagePullPolicy }}
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka:9092"
+            - name: QUARKUS_DATASOURCE_JDBC_URL
+              value: "jdbc:postgresql://postgres:5432/{{ .Values.postgresql.database }}"
+            - name: QUARKUS_DATASOURCE_USERNAME
+              value: {{ .Values.postgresql.username }}
+            - name: QUARKUS_DATASOURCE_PASSWORD
+              value: {{ .Values.postgresql.password }}
+            - name: QUARKUS_PROFILE
+              value: "prod"
+            - name: QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://jaeger:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "quarkus-sinker"
+          resources:
+            {{- toYaml .Values.quarkusSinker.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.quarkusSinker.healthCheck.path }}
+              port: 8080
+            initialDelaySeconds: {{ .Values.quarkusSinker.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.quarkusSinker.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.quarkusSinker.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.quarkusSinker.healthCheck.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.quarkusSinker.healthCheck.path }}
+              port: 8080
+            initialDelaySeconds: {{ .Values.quarkusSinker.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.quarkusSinker.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.quarkusSinker.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.quarkusSinker.healthCheck.failureThreshold }}
+{{- end }}

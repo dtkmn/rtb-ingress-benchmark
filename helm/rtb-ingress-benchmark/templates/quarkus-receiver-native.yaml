@@ -1,0 +1,81 @@
+{{- if .Values.quarkusReceiverNative.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: quarkus-receiver-native
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: quarkus-receiver-native
+    {{- include "rtb-ingress-benchmark.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.serviceType }}
+  {{- if eq .Values.serviceType "NodePort" }}
+  ports:
+    - name: http
+      port: {{ .Values.quarkusReceiverNative.port }}
+      targetPort: 8080
+      nodePort: 30071
+      protocol: TCP
+  {{- else }}
+  ports:
+    - name: http
+      port: {{ .Values.quarkusReceiverNative.port }}
+      targetPort: 8080
+      protocol: TCP
+  {{- end }}
+  selector:
+    app: quarkus-receiver-native
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quarkus-receiver-native
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: quarkus-receiver-native
+    {{- include "rtb-ingress-benchmark.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.quarkusReceiverNative.replicas }}
+  selector:
+    matchLabels:
+      app: quarkus-receiver-native
+  template:
+    metadata:
+      labels:
+        app: quarkus-receiver-native
+    spec:
+      containers:
+        - name: quarkus-receiver-native
+          image: {{ .Values.quarkusReceiverNative.image }}
+          imagePullPolicy: {{ .Values.applicationImagePullPolicy }}
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka:9092"
+            - name: QUARKUS_PROFILE
+              value: "prod"
+            - name: QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://jaeger:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "quarkus-receiver-native"
+          resources:
+            {{- toYaml .Values.quarkusReceiverNative.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.quarkusReceiverNative.healthCheck.path }}
+              port: 8080
+            initialDelaySeconds: {{ .Values.quarkusReceiverNative.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.quarkusReceiverNative.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.quarkusReceiverNative.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.quarkusReceiverNative.healthCheck.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.quarkusReceiverNative.healthCheck.path }}
+              port: 8080
+            initialDelaySeconds: {{ .Values.quarkusReceiverNative.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.quarkusReceiverNative.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.quarkusReceiverNative.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.quarkusReceiverNative.healthCheck.failureThreshold }}
+{{- end }}

@@ -1,0 +1,17 @@
+{
+  "name": "node-receiver",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fastify receiver benchmark baseline",
+  "engines": {
+    "node": ">=24 <26"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "fastify": "5.8.1",
+    "kafkajs": "2.2.4"
+  }
+}

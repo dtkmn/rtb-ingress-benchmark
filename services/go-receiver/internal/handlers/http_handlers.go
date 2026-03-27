@@ -39,10 +39,21 @@ func ReceiveBid(c *gin.Context) {
 		return
 	}
 
+	if kafka.DeliveryMode() == kafka.DeliveryModeHttpOnly {
+		c.JSON(http.StatusOK, gin.H{"status": "accepted"})
+		return
+	}
+
 	// --- STAGE 3: PUSH TO KAFKA & ACKNOWLEDGE ---
 	msgBytes, err := json.Marshal(request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "serialization error"})
+		return
+	}
+
+	if kafka.KafkaWriter == nil {
+		log.Printf("Kafka writer is not initialized")
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "kafka unavailable"})
 		return
 	}
 

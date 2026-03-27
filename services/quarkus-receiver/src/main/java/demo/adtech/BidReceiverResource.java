@@ -2,25 +2,28 @@ package demo.adtech;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.reactive.messaging.Channel;
-import org.eclipse.microprofile.reactive.messaging.Emitter;
-import org.eclipse.microprofile.reactive.messaging.OnOverflow;
 import org.jboss.logging.Logger;
 
+import java.util.Map;
+
 @Path( "/bid-request")
+@Consumes(MediaType.APPLICATION_JSON)
+@Produces(MediaType.APPLICATION_JSON)
 public class BidReceiverResource {
 
     private static final Logger LOG = Logger.getLogger(BidReceiverResource.class);
 
-    // "Emitter" is the reactive way to push messages to a stream (Kafka).
-    // It's non-blocking and very high performance.
     @Inject
-    @Channel("bid-stream")
-    @OnOverflow(value = OnOverflow.Strategy.BUFFER, bufferSize = 5000)
-    Emitter<BidRequest> bidEmitter;
+    BidPublisher bidPublisher;
+
+    @Inject
+    BenchmarkSettings benchmarkSettings;
 
     @POST
     // Returning 'Uni<Response>' means this method is non-blocking (reactive).
@@ -46,15 +49,26 @@ public class BidReceiverResource {
             return Uni.createFrom().item(Response.noContent().build());
         }
 
+        if (benchmarkSettings.isHttpOnlyMode()) {
+            return Uni.createFrom().item(Response.ok(Map.of("status", "accepted")).build());
+        }
+
         // --- STAGE 3: PUSH TO KAFKA & ACKNOWLEDGE ---
         // If it passed the filters, it's a "good" request. Push it to the Decision Engine.
-        // .send() is non-blocking.
-        bidEmitter.send(request);
+        var delivery = bidPublisher.publish(request);
 
-        // Immediately return 200 OK to the exchange.
-        // We don't wait for the Kafka write to be fully confirmed because latency is King here.
-        // In AdTech, it's better to lose 0.01% of messages than to be 10ms slower on ALL messages.
-        return Uni.createFrom().item(Response.ok("{\"status\":\"accepted\"}").build());
+        if (!benchmarkSettings.isConfirmDeliveryMode()) {
+            return Uni.createFrom().item(Response.ok(Map.of("status", "accepted")).build());
+        }
+
+        return Uni.createFrom().completionStage(() -> delivery)
+                .replaceWith(Response.ok(Map.of("status", "accepted")).build())
+                .onFailure().invoke(throwable -> LOG.error("Kafka delivery failed", throwable))
+                .onFailure().recoverWithItem(
+                        Response.status(Response.Status.SERVICE_UNAVAILABLE)
+                                .entity(Map.of("status", "kafka unavailable"))
+                                .build()
+                );
     }
 
 }

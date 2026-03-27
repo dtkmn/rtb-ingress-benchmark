@@ -1,4 +1,25 @@
-# **Quarkus Native Demo: High-Velocity Bid Receiver**
+# **RTB Ingress Benchmark Harness**
+
+A living benchmark harness for RTB-style ingress services across popular backend runtimes and frameworks.
+
+## **Latest Verified Benchmark Snapshot**
+
+This repo is maintained as a living benchmark harness, not a permanent winner board.
+
+- **Snapshot date:** 2026-03-12
+- **Git SHA:** `7432aed42fb6cfee1d6844334ea4ba3422837a06`
+- **Baseline modes:** `http-only`, `confirm`, `enqueue`
+- **Workload:** `100` VUs for `30s` with `10s` warmup
+- **Budget:** receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g`
+- **Fairness controls:** `HTTP_SERVER_WORKERS=2`, `GOMAXPROCS=2`, `QUARKUS_HTTP_IO_THREADS=2`, Kafka `linger=10ms`, `batch=131072`, `request_timeout=5000ms`, `retries=5`, `retry_backoff=100ms`
+
+Current takeaways from that baseline:
+
+- In `http-only`, Quarkus JVM topped raw throughput in this run; Rust and Go followed.
+- In `confirm`, Go led raw throughput, while Rust, Spring virtual threads, Spring WebFlux, Quarkus Native, and Quarkus JVM formed a relatively tight middle pack.
+- Cross-mode rank changes were material once Kafka confirmation stayed in the request path; the published dashboard makes those mode-specific rankings much easier to compare cleanly.
+
+For the published snapshot data, see the GitHub Pages dashboard and the committed dashboard data snapshot in `site/src/data/site-data.json`. For the rules behind these runs, see [docs/BENCHMARK_CONTRACT.md](docs/BENCHMARK_CONTRACT.md). For the monthly timeline and update policy, see [docs/BENCHMARK_HISTORY.md](docs/BENCHMARK_HISTORY.md).
 
 ## **1\. Business Case**
 
@@ -57,14 +78,18 @@ We will perform load testing using realistic, albeit simplified, OpenRTB JSON pa
 ```mermaid
 graph TB
     subgraph "Load Balancer / Ingress"
-        LB[Load Balancer<br/>Port 8070-8073]
+        LB[Load Balancer<br/>Port 8070-8078]
     end
     
     subgraph "Receiver Layer - High Throughput HTTP Services"
-        QR[Quarkus Receiver JVM<br/>:8070<br/>~16.7K RPS]
-        QRN[Quarkus Receiver Native<br/>:8071<br/>~16.8K RPS]
-        GR[Go Receiver<br/>:8072<br/>~17.6K RPS]
-        RR[Rust Receiver<br/>:8073<br/>~21.8K RPS]
+        QR[Quarkus Receiver JVM<br/>:8070]
+        QRN[Quarkus Receiver Native<br/>:8071]
+        GR[Go Receiver<br/>:8072]
+        RR[Rust Receiver<br/>:8073]
+        PR[Python Receiver<br/>:8075]
+        SR[Spring Receiver WebFlux<br/>:8076]
+        SVR[Spring Receiver VT<br/>:8078]
+        NR[Node Receiver<br/>:8077]
     end
     
     subgraph "Message Queue"
@@ -93,11 +118,19 @@ graph TB
     LB --> QRN
     LB --> GR
     LB --> RR
+    LB --> PR
+    LB --> SR
+    LB --> SVR
+    LB --> NR
     
     QR -->|Reactive Messaging| K
     QRN -->|Reactive Messaging| K
     GR -->|Kafka Producer| K
     RR -->|Kafka Producer| K
+    PR -->|Kafka Producer| K
+    SR -->|Kafka Producer| K
+    SVR -->|Kafka Producer| K
+    NR -->|Kafka Producer| K
     
     K --> QS
     QS -->|Persist| PG
@@ -130,13 +163,17 @@ graph TB
 
 ### Service Comparison
 
-| Service | Port | Technology | Image Size | Use Case |
-|---------|------|------------|------------|----------|
-| **quarkus-receiver** | 8070 | Quarkus JVM + Alpine JRE | 387MB | Production-ready JVM with fast startup |
-| **quarkus-receiver-native** | 8071 | Quarkus Native (GraalVM) | 271MB | Instant startup, minimal memory |
-| **go-receiver** | 8072 | Go + Gin | 51.6MB | Minimal footprint, high throughput |
-| **rust-receiver** | 8073 | Rust + Actix | 132MB | Maximum performance, memory safety |
-| **quarkus-sinker** | 8074 | Quarkus JVM + Kafka Streams | 582MB | Consumer that sinks to PostgreSQL |
+| Service | Port | Technology | Role |
+|---------|------|------------|------|
+| **quarkus-receiver** | 8070 | Quarkus JVM + Alpine JRE | JVM receiver baseline |
+| **quarkus-receiver-native** | 8071 | Quarkus Native (GraalVM) | Native-image receiver baseline |
+| **go-receiver** | 8072 | Go + Gin | Go receiver baseline |
+| **rust-receiver** | 8073 | Rust + Actix | Rust receiver baseline |
+| **python-receiver** | 8075 | Python + FastAPI | Python receiver baseline |
+| **spring-receiver** | 8076 | Spring Boot 4 + WebFlux | Reactive Spring receiver baseline |
+| **spring-virtual-receiver** | 8078 | Spring Boot 4 + MVC + virtual threads | Blocking Spring receiver baseline |
+| **node-receiver** | 8077 | Node 24 + Fastify | JavaScript/TypeScript receiver baseline |
+| **quarkus-sinker** | 8074 | Quarkus JVM + Kafka Streams | Downstream sinker and persistence stage |
 
 **All services are built using multi-stage Dockerfiles** - no pre-build steps required!
 
@@ -192,7 +229,7 @@ This project includes a production-ready Helm chart for deploying to any Kuberne
 kubectl create namespace adtech-demo
 
 # Install the Helm chart
-helm install quarkus-adtech-demo ./helm/quarkus-adtech-demo \
+helm install rtb-ingress-benchmark ./helm/rtb-ingress-benchmark \
   --namespace adtech-demo
 
 # Check deployment status
@@ -217,14 +254,14 @@ kubectl apply -f - <<EOF
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: quarkus-adtech-demo
+  name: rtb-ingress-benchmark
   namespace: argocd
 spec:
   project: default
   source:
-    repoURL: https://github.com/dtkmn/quarkus-adtech-demo
+    repoURL: https://github.com/dtkmn/rtb-ingress-benchmark
     targetRevision: dev
-    path: helm/quarkus-adtech-demo
+    path: helm/rtb-ingress-benchmark
   destination:
     server: https://kubernetes.default.svc
     namespace: adtech-demo
@@ -254,7 +291,7 @@ kind load docker-image rust-receiver:latest --name adtech-demo
 kind load docker-image quarkus-sinker:latest --name adtech-demo
 
 # Deploy with Helm
-helm install quarkus-adtech-demo ./helm/quarkus-adtech-demo \
+helm install rtb-ingress-benchmark ./helm/rtb-ingress-benchmark \
   --namespace adtech-demo --create-namespace
 ```
 
@@ -295,39 +332,117 @@ For deploying to cloud Kubernetes (EKS, AKS, GKE):
    - AWS RDS (PostgreSQL) instead of in-cluster database
    - AWS Managed Prometheus & Grafana
 
-## **7\. Comprehensive Benchmark Comparison**
+## **7\. Benchmark Foundation**
 
-The following table compares our actual test results with performance for traditional stacks in a similar Docker Desktop environment (constrained to \~3-4 vCPUs).
+This repository is maintained as a living comparison harness. Historical winners in old benchmark runs should be treated as dated unless they are tied to a specific commit, hardware profile, and benchmark mode.
 
-Metric | Go (Gin) | Quarkus Native | Rust (Actix) | Spring Boot (JVM)* | Python (FastAPI)* |
-| :---- | :---- | :---- | :---- | :---- | :---- |
-| **Max Throughput** | **~31,000 RPS** | **~30,000 RPS** | **~31,000 RPS** | ~14,000 RPS | ~7,000 RPS |
-| **Avg. Latency** | **1.57ms** | **1.70ms** | **1.55ms** | ~8.5ms | ~25ms |
-| **Idle Memory** | **~15 MB** | **~35 MB** | **~12MB** | ~450 MB | ~120 MB |
-| **Startup Time** | **Instant** | **0.05s** | **Instant** | 10s+ | 1s |
-| **Bottleneck** | Network/Infra | Network/Infra | Network/Infra | CPU (JIT Warmup) | CPU (GIL) |
+The benchmark contract lives in [docs/BENCHMARK_CONTRACT.md](docs/BENCHMARK_CONTRACT.md). The default comparison mode is now:
 
+- `BENCHMARK_DELIVERY_MODE=confirm`
+- `BENCHMARK_KAFKA_ACKS=1`
 
+That makes the out-of-the-box run compare HTTP request handling plus Kafka delivery confirmation instead of mixing fire-and-forget and delivery-confirmed semantics.
 
-
-**Key Takeaways:**
-
-1. **Go & Quarkus Native** are in a league of their own. They are so fast they saturate the Docker network (\~30k RPS) before their own code becomes the bottleneck.
-2. **Spring Boot (Standard JVM)** is robust but heavy. It requires significantly more memory (\~10x) and takes seconds to start, making it less ideal for serverless or instant-scaling AdTech scenarios.
-3. **Python (FastAPI)** is excellent for development speed but struggles with raw throughput in high-concurrency scenarios due to the Global Interpreter Lock (GIL) and interpreter overhead. To match Go's 30k RPS, you would likely need 4-5x more hardware.
+For framework-only cost, run `BENCHMARK_DELIVERY_MODE=http-only`. That mode skips Kafka startup and measures HTTP parsing, validation, filtering, and response handling only.
 
 ## **8\. Load Testing**
 
-Run k6 load tests against any receiver:
+Run a single target manually:
 
 ```bash
-# Test Quarkus JVM receiver
-k6 run --vus 100 --duration 30s k6/load-test.js
-
-# Test different services by changing the BASE_URL
-BASE_URL=http://localhost:8072 k6 run k6/load-test.js  # Go receiver
-BASE_URL=http://localhost:8073 k6 run k6/load-test.js  # Rust receiver
+BASE_URL=http://localhost:8070 VUS=100 DURATION=30s k6 run k6/load-test.js
+BASE_URL=http://localhost:8072 RATE=5000 DURATION=30s PREALLOCATED_VUS=200 MAX_VUS=400 k6 run k6/load-test.js
 ```
+
+Run the full matrix with the reproducible wrapper:
+
+```bash
+scripts/run-benchmark-matrix.sh
+```
+
+Run fire-and-forget mode explicitly:
+
+```bash
+BENCHMARK_DELIVERY_MODE=enqueue scripts/run-benchmark-matrix.sh
+```
+
+`enqueue` now defaults `BENCHMARK_KAFKA_ACKS` to `0` unless you override it explicitly.
+
+Run the pure receiver path without Kafka:
+
+```bash
+BENCHMARK_DELIVERY_MODE=http-only scripts/run-benchmark-matrix.sh
+```
+
+Override the default resource budget explicitly when needed:
+
+```bash
+BENCHMARK_RECEIVER_CPUS=1.5 BENCHMARK_RECEIVER_MEMORY=512m \
+BENCHMARK_KAFKA_CPUS=1.0 BENCHMARK_KAFKA_MEMORY=768m \
+scripts/run-benchmark-matrix.sh
+```
+
+Make concurrency explicit when you want to compare scheduler behavior instead of framework defaults:
+
+```bash
+HTTP_SERVER_WORKERS=2 \
+GOMAXPROCS=2 \
+QUARKUS_HTTP_IO_THREADS=2 \
+scripts/run-benchmark-matrix.sh
+```
+
+`HTTP_SERVER_WORKERS` is not a literal CPU-thread knob across the whole matrix. In this repo it means worker processes for Python and Node, worker threads for Rust, and Reactor Netty I/O workers for Spring WebFlux. `BENCHMARK_RECEIVER_CPUS` is the actual container CPU budget.
+
+`spring-virtual-receiver` enables Spring Boot virtual threads, so Spring's own pool-size properties are intentionally not used there. That lane is constrained by the container CPU budget rather than an explicit server worker-count setting.
+
+Keep Kafka producer tuning aligned too:
+
+```bash
+BENCHMARK_KAFKA_LINGER_MS=10 \
+BENCHMARK_KAFKA_BATCH_BYTES=131072 \
+BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS=5000 \
+BENCHMARK_KAFKA_RETRY_BACKOFF_MS=100 \
+scripts/run-benchmark-matrix.sh
+```
+
+For clients that expose it, you can also make retry behavior explicit:
+
+```bash
+BENCHMARK_KAFKA_RETRIES=5 \
+BENCHMARK_KAFKA_RETRY_BACKOFF_MS=100 \
+scripts/run-benchmark-matrix.sh
+```
+
+Not every client library exposes identical producer knobs. The Java, Go, Rust, and Spring lanes support explicit retry count and retry backoff; `aiokafka` exposes retry backoff but not a fixed retry-count knob, so its retry budget is still bounded by `BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS`. KafkaJS can apply the shared request timeout and retry settings, but its batching model is not a one-to-one match.
+
+The local Kafka broker is now more explicit too:
+
+- topic auto-creation is disabled
+- topic partitions, retention, max message size, and min ISR are configurable
+- broker network and I/O thread counts are explicit
+
+This is still a single-broker local stack, so it is not true high availability. Real durability improvements require a multi-broker cluster with replication factor greater than `1`.
+
+Each matrix run now produces collated artifacts under `results/<timestamp>/`, including `runs.csv`, `summary.csv`, `summary.md`, `summary.json`, and `mode-comparison.csv` when a compatible opposite-mode run is available.
+
+`summary.md` now includes normalized efficiency views alongside raw throughput, plus a matched HTTP-vs-Kafka delta section when the collator can pair the run with a compatible `http-only` or Kafka-enabled counterpart:
+
+- `req/s / receiver CPU limit`
+- `req/s / receiver GiB limit`
+- `req/s / measured stack avg core`
+- `req/s / measured stack avg GiB`
+- estimated Kafka-added latency per service
+
+To keep the README readable, only the latest verified baseline snapshot should live near the top of this file. Put monthly updates and historical snapshots in [docs/BENCHMARK_HISTORY.md](docs/BENCHMARK_HISTORY.md).
+
+The repo also ships a static GitHub Pages dashboard under `site/`. Refresh it locally after a trusted benchmark run with:
+
+```bash
+python3 scripts/build_benchmark_site.py
+python3 -m http.server -d site/dist 8000
+```
+
+The generated Pages artifact lives in `site/dist/`, while the committed dashboard data snapshot is `site/src/data/site-data.json`.
 
 ## **9\. Docker Image Optimization**
 
@@ -366,10 +481,35 @@ cd services/rust-receiver
 cargo run
 ```
 
+For Python service:
+```bash
+cd services/python-receiver
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 2
+```
+
+For Spring Boot service:
+```bash
+cd services/spring-receiver
+mvn spring-boot:run
+```
+
+For Node service:
+```bash
+cd services/node-receiver
+npm install
+HTTP_SERVER_WORKERS=2 npm start
+```
+
 ### Rebuild Individual Services
 ```bash
 docker-compose build quarkus-receiver
 docker-compose build go-receiver
+docker-compose build python-receiver
+docker-compose build spring-receiver
+docker-compose build node-receiver
 ```
 
 ## **11\. CI/CD**
