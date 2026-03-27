@@ -411,7 +411,10 @@ async function init() {
       document.getElementById("history-context") ||
       document.querySelector(".page-shell");
     if (target) {
-      target.innerHTML = `<p class="empty-state">${error.message}</p>`;
+      const message = document.createElement("p");
+      message.className = "empty-state";
+      message.textContent = error instanceof Error ? error.message : String(error);
+      target.replaceChildren(message);
     }
   }
 }
