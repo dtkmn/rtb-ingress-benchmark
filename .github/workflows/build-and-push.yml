@@ -51,6 +51,26 @@ jobs:
             path: ./services/rust-receiver
             dockerfile: Dockerfile
 
+          # --- Service 6: Python Receiver ---
+          - name: python-receiver
+            path: ./services/python-receiver
+            dockerfile: Dockerfile
+
+          # --- Service 7: Spring Receiver (WebFlux) ---
+          - name: spring-receiver
+            path: ./services/spring-receiver
+            dockerfile: Dockerfile
+
+          # --- Service 8: Spring Receiver (Virtual Threads) ---
+          - name: spring-virtual-receiver
+            path: ./services/spring-virtual-receiver
+            dockerfile: Dockerfile
+
+          # --- Service 9: Node Receiver ---
+          - name: node-receiver
+            path: ./services/node-receiver
+            dockerfile: Dockerfile
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
