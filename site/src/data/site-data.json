@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-27T10:21:09.509141+11:00",
+  "generated_at": "2026-03-27T10:59:02.642875+11:00",
   "repo": {
     "name": "rtb-ingress-benchmark",
     "url": "https://github.com/dtkmn/rtb-ingress-benchmark",
@@ -8,7 +8,8 @@
   },
   "docs": {
     "contract_url": "https://github.com/dtkmn/rtb-ingress-benchmark/blob/main/docs/BENCHMARK_CONTRACT.md",
-    "history_url": "https://github.com/dtkmn/rtb-ingress-benchmark/blob/main/docs/BENCHMARK_HISTORY.md"
+    "history_url": "https://github.com/dtkmn/rtb-ingress-benchmark/blob/main/docs/BENCHMARK_HISTORY.md",
+    "site_data_url": "https://github.com/dtkmn/rtb-ingress-benchmark/blob/main/site/src/data/site-data.json"
   },
   "mode_order": [
     "confirm",
@@ -30,6 +31,7 @@
       "mode_label": "Confirm",
       "git_sha": "a2c1f1d02ebd957384520b2bd7567cbec51b0fdb",
       "git_sha_short": "a2c1f1d",
+      "commit_url": "https://github.com/dtkmn/rtb-ingress-benchmark/commit/a2c1f1d02ebd957384520b2bd7567cbec51b0fdb",
       "services_count": 8,
       "services": [
         "quarkus-receiver",
@@ -43,9 +45,6 @@
       ],
       "workload": "100 VUs for 30s (warmup 10s)",
       "budget": "receiver 2.0 CPU / 768m, Kafka 2.0 CPU / 1g",
-      "raw_summary_url": "https://github.com/dtkmn/rtb-ingress-benchmark/blob/main/results/20260326-211147/summary.md",
-      "raw_results_url": "https://github.com/dtkmn/rtb-ingress-benchmark/tree/main/results/20260326-211147",
-      "mode_comparison_url": "https://github.com/dtkmn/rtb-ingress-benchmark/blob/main/results/20260326-211147/mode-comparison.csv",
       "cards": {
         "top_throughput": {
           "label": "Top throughput",
@@ -168,6 +167,7 @@
       "mode_label": "Enqueue",
       "git_sha": "a2c1f1d02ebd957384520b2bd7567cbec51b0fdb",
       "git_sha_short": "a2c1f1d",
+      "commit_url": "https://github.com/dtkmn/rtb-ingress-benchmark/commit/a2c1f1d02ebd957384520b2bd7567cbec51b0fdb",
       "services_count": 8,
       "services": [
         "quarkus-receiver",
@@ -181,9 +181,6 @@
       ],
       "workload": "100 VUs for 30s (warmup 10s)",
       "budget": "receiver 2.0 CPU / 768m, Kafka 2.0 CPU / 1g",
-      "raw_summary_url": "https://github.com/dtkmn/rtb-ingress-benchmark/blob/main/results/20260312-192216/summary.md",
-      "raw_results_url": "https://github.com/dtkmn/rtb-ingress-benchmark/tree/main/results/20260312-192216",
-      "mode_comparison_url": "https://github.com/dtkmn/rtb-ingress-benchmark/blob/main/results/20260312-192216/mode-comparison.csv",
       "cards": {
         "top_throughput": {
           "label": "Top throughput",
@@ -306,6 +303,7 @@
       "mode_label": "HTTP-only",
       "git_sha": "7432aed42fb6cfee1d6844334ea4ba3422837a06",
       "git_sha_short": "7432aed",
+      "commit_url": "https://github.com/dtkmn/rtb-ingress-benchmark/commit/7432aed42fb6cfee1d6844334ea4ba3422837a06",
       "services_count": 8,
       "services": [
         "quarkus-receiver",
@@ -319,9 +317,6 @@
       ],
       "workload": "100 VUs for 30s (warmup 10s)",
       "budget": "receiver 2.0 CPU / 768m, Kafka 2.0 CPU / 1g",
-      "raw_summary_url": "https://github.com/dtkmn/rtb-ingress-benchmark/blob/main/results/20260312-190020/summary.md",
-      "raw_results_url": "https://github.com/dtkmn/rtb-ingress-benchmark/tree/main/results/20260312-190020",
-      "mode_comparison_url": "https://github.com/dtkmn/rtb-ingress-benchmark/blob/main/results/20260312-190020/mode-comparison.csv",
       "cards": {
         "top_throughput": {
           "label": "Top throughput",
@@ -529,6 +524,7 @@
       "mode_label": "Confirm",
       "git_sha": "7432aed42fb6cfee1d6844334ea4ba3422837a06",
       "git_sha_short": "7432aed",
+      "commit_url": "https://github.com/dtkmn/rtb-ingress-benchmark/commit/7432aed42fb6cfee1d6844334ea4ba3422837a06",
       "services_count": 8,
       "services": [
         "quarkus-receiver",
@@ -542,9 +538,6 @@
       ],
       "workload": "100 VUs for 30s (warmup 10s)",
       "budget": "receiver 2.0 CPU / 768m, Kafka 2.0 CPU / 1g",
-      "raw_summary_url": "https://github.com/dtkmn/rtb-ingress-benchmark/blob/main/results/20260312-184014/summary.md",
-      "raw_results_url": "https://github.com/dtkmn/rtb-ingress-benchmark/tree/main/results/20260312-184014",
-      "mode_comparison_url": "https://github.com/dtkmn/rtb-ingress-benchmark/blob/main/results/20260312-184014/mode-comparison.csv",
       "cards": {
         "top_throughput": {
           "label": "Top throughput",
@@ -667,6 +660,7 @@
       "mode_label": "Confirm",
       "git_sha": "c2376a241757cbcedeb7bcd247b31a616c1f832b",
       "git_sha_short": "c2376a2",
+      "commit_url": "https://github.com/dtkmn/rtb-ingress-benchmark/commit/c2376a241757cbcedeb7bcd247b31a616c1f832b",
       "services_count": 8,
       "services": [
         "quarkus-receiver",
@@ -680,9 +674,6 @@
       ],
       "workload": "100 VUs for 30s (warmup 10s)",
       "budget": "receiver 2.0 CPU / 768m, Kafka 2.0 CPU / 1g",
-      "raw_summary_url": "https://github.com/dtkmn/rtb-ingress-benchmark/blob/main/results/20260312-175418/summary.md",
-      "raw_results_url": "https://github.com/dtkmn/rtb-ingress-benchmark/tree/main/results/20260312-175418",
-      "mode_comparison_url": "https://github.com/dtkmn/rtb-ingress-benchmark/blob/main/results/20260312-175418/mode-comparison.csv",
       "cards": {
         "top_throughput": {
           "label": "Top throughput",

@@ -91,7 +91,6 @@ function renderDashboard(data) {
   renderContextPanel(activeSnapshot);
   renderModeTabs(data, activeSnapshot, currentSort);
   renderSnapshotSelect(activeSnapshot, snapshotsForMode, currentSort);
-  renderLinks(activeSnapshot);
   renderCards(activeSnapshot.cards);
   renderSortControls(activeSnapshot, currentSort);
   renderRankingTable(activeSnapshot.rows, currentSort);
@@ -113,7 +112,7 @@ function renderContextPanel(snapshot) {
     </div>
     <div class="context-item">
       <strong>Git SHA</strong>
-      <a href="${snapshot.raw_results_url}" target="_blank" rel="noreferrer">${snapshot.git_sha_short}</a>
+      <a href="${snapshot.commit_url}" target="_blank" rel="noreferrer">${snapshot.git_sha_short}</a>
     </div>
     <div class="context-item">
       <strong>Workload</strong>
@@ -187,13 +186,6 @@ function renderSnapshotSelect(activeSnapshot, snapshotsForMode, currentSort) {
   };
 }
 
-function renderLinks(snapshot) {
-  const rawSummaryLink = document.getElementById("raw-summary-link");
-  const rawResultsLink = document.getElementById("raw-results-link");
-  rawSummaryLink.href = snapshot.raw_summary_url;
-  rawResultsLink.href = snapshot.raw_results_url;
-}
-
 function renderCards(cards) {
   const grid = document.getElementById("metric-cards");
   grid.innerHTML = Object.values(cards)
@@ -256,7 +248,7 @@ function renderInterpretation(snapshot) {
   miniMeta.innerHTML = `
     <div><strong>Top throughput:</strong> ${snapshot.top_service_label} (${formatNumber(snapshot.top_req_s)} req/s)</div>
     <div><strong>Services:</strong> ${snapshot.services_count} receiver lanes</div>
-    <div><strong>Raw summary:</strong> <a href="${snapshot.raw_summary_url}" target="_blank" rel="noreferrer">summary.md</a></div>
+    <div><strong>Commit:</strong> <a href="${snapshot.commit_url}" target="_blank" rel="noreferrer">${snapshot.git_sha_short}</a></div>
   `;
 }
 
@@ -284,7 +276,6 @@ function renderDeltaPanel(snapshot) {
         <p class="eyebrow">Matched Delta</p>
         <h2>Compared with ${comparison.matched_delivery_mode}</h2>
       </div>
-      <a class="link-button" href="${snapshot.mode_comparison_url}" target="_blank" rel="noreferrer">mode-comparison.csv</a>
     </div>
     <div class="table-wrap">
       <table class="data-table">
@@ -327,7 +318,7 @@ function renderRecentSnapshots(snapshots) {
     <div class="section-head">
       <div>
         <p class="eyebrow">Recent Snapshots</p>
-        <h2>Latest published result folders</h2>
+        <h2>Latest published snapshots</h2>
       </div>
       <a class="link-button" href="history/">Open history</a>
     </div>
@@ -346,7 +337,7 @@ function renderRecentSnapshots(snapshots) {
               </div>
               <div class="inline-actions">
                 <a href="${dashboardUrl(snapshot.id, snapshot.mode)}">Open dashboard</a>
-                <a href="${snapshot.raw_summary_url}" target="_blank" rel="noreferrer">Raw summary</a>
+                <a href="${snapshot.commit_url}" target="_blank" rel="noreferrer">Commit</a>
               </div>
             </article>
           `
@@ -390,7 +381,7 @@ function renderHistory(data) {
           <td>
             <div class="inline-actions">
               <a href="${dashboardUrl(snapshot.id, snapshot.mode)}">Dashboard</a>
-              <a href="${snapshot.raw_summary_url}" target="_blank" rel="noreferrer">Summary</a>
+              <a href="${snapshot.commit_url}" target="_blank" rel="noreferrer">Commit</a>
             </div>
           </td>
         </tr>
