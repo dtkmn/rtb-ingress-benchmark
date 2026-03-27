@@ -82,8 +82,10 @@ def repo_blob_url(path: str) -> str:
     return f"{REPO_URL}/blob/{REPO_REF}/{path}"
 
 
-def repo_tree_url(path: str) -> str:
-    return f"{REPO_URL}/tree/{REPO_REF}/{path}"
+def repo_commit_url(commit_sha: str) -> str:
+    if not commit_sha:
+        return REPO_URL
+    return f"{REPO_URL}/commit/{commit_sha}"
 
 
 def simplify_summary_row(row: dict) -> dict[str, object]:
@@ -194,13 +196,11 @@ def build_snapshot(summary_path: Path) -> dict[str, object]:
         "mode_label": MODE_LABELS.get(meta.get("delivery_mode", ""), meta.get("delivery_mode", "unknown")),
         "git_sha": meta.get("git_sha", ""),
         "git_sha_short": meta.get("git_sha", "")[:7],
+        "commit_url": repo_commit_url(meta.get("git_sha", "")),
         "services_count": len(services) or len(rows),
         "services": services,
         "workload": format_workload(meta),
         "budget": format_budget(meta),
-        "raw_summary_url": repo_blob_url(f"results/{snapshot_id}/summary.md"),
-        "raw_results_url": repo_tree_url(f"results/{snapshot_id}"),
-        "mode_comparison_url": repo_blob_url(f"results/{snapshot_id}/mode-comparison.csv"),
         "cards": build_cards(rows),
         "rows": rows,
         "top_service_label": top_row["service_label"],
@@ -238,6 +238,7 @@ def build_site_data() -> dict[str, object]:
         "docs": {
             "contract_url": repo_blob_url("docs/BENCHMARK_CONTRACT.md"),
             "history_url": repo_blob_url("docs/BENCHMARK_HISTORY.md"),
+            "site_data_url": repo_blob_url("site/src/data/site-data.json"),
         },
         "mode_order": MODE_ORDER,
         "latest_by_mode": latest_by_mode,
