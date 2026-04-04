@@ -32,8 +32,9 @@ jobs:
 
       - name: Run ZAP security gate against Go receiver
         id: zap_gate
-        # Pin the OSS action to the published commit until the next tag includes it.
-        uses: dtkmn/mcp-zap-server/.github/actions/zap-security-gate@d577ec1d63e4c1ab8e132fdb57925a5f896d162d
+        # Track the OSS dev branch until the readiness fix lands in a tagged release,
+        # then pin this back to an immutable commit or tag.
+        uses: dtkmn/mcp-zap-server/.github/actions/zap-security-gate@dev
         with:
           # This benchmark service is mostly a thin JSON ingress API.
           # Start with a lightweight smoke target that proves consumer-repo

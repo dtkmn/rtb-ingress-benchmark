@@ -1,6 +1,5 @@
 services:
   go-receiver:
-    image: rtb-go-receiver-zap
     build:
       context: ${GITHUB_WORKSPACE}/services/go-receiver
       dockerfile: Dockerfile
