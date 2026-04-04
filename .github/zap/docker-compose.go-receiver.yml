@@ -1,0 +1,10 @@
+services:
+  go-receiver:
+    image: rtb-go-receiver-zap
+    build:
+      context: ${GITHUB_WORKSPACE}/services/go-receiver
+      dockerfile: Dockerfile
+    environment:
+      BENCHMARK_DELIVERY_MODE: http-only
+    expose:
+      - "8080"

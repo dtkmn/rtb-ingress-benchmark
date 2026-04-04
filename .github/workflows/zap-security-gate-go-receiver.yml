@@ -1,0 +1,73 @@
+name: ZAP Security Gate (Go Receiver)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mcp_server_image:
+        description: Optional immutable MCP server image tag or digest override
+        required: false
+        default: ""
+      fail_on_new_findings:
+        description: Fail the workflow when net-new findings exceed the configured threshold
+        required: false
+        default: "false"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/zap-security-gate-go-receiver.yml"
+      - ".github/zap/docker-compose.go-receiver.yml"
+      - "services/go-receiver/**"
+
+jobs:
+  zap-security-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Run ZAP security gate against Go receiver
+        id: zap_gate
+        uses: AgenticLab-AU/agentic-security-gateway/.github/actions/zap-security-gate@v0.4.0
+        with:
+          # This benchmark service is mostly a thin JSON ingress API.
+          # Start with a lightweight smoke target that proves consumer-repo
+          # installability and artifact generation before tightening policy.
+          target-url: http://go-receiver:8080/health
+          compose-override-file: .github/zap/docker-compose.go-receiver.yml
+          compose-services: go-receiver zap mcp-server
+          mcp-server-image: ${{ github.event.inputs.mcp_server_image || vars.ASG_MCP_SERVER_IMAGE || 'ghcr.io/agenticlab-au/security-gateway:0.4.0' }}
+          output-dir: .zap-artifacts/go-receiver
+          run-active-scan: "false"
+          fail-on-new-findings: ${{ github.event.inputs.fail_on_new_findings || 'false' }}
+          spider-timeout-seconds: "300"
+          passive-timeout-seconds: "120"
+
+      - name: Upload ZAP gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-security-gate-go-receiver
+          path: .zap-artifacts/go-receiver
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Summarize gate result
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## ZAP Security Gate (Go Receiver)"
+            echo
+            echo "- Gate passed: ${{ steps.zap_gate.outputs.gate-passed }}"
+            echo "- Baseline used: ${{ steps.zap_gate.outputs.baseline-used }}"
+            echo "- New findings: ${{ steps.zap_gate.outputs.new-findings }}"
+            echo "- Resolved findings: ${{ steps.zap_gate.outputs.resolved-findings }}"
+            echo "- Manifest: ${{ steps.zap_gate.outputs.manifest-path }}"
+            echo
+            echo "This workflow is the external-consumer smoke path for the reusable MCP ZAP action."
+            echo "It validates installability against the benchmark repo without coupling the scan flow to build-and-push or CodeQL."
+          } >> "$GITHUB_STEP_SUMMARY"
