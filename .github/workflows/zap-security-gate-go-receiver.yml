@@ -11,6 +11,7 @@ on:
         description: Fail the workflow when net-new findings exceed the configured threshold
         required: false
         default: "false"
+  push:
   pull_request:
     branches: ["main"]
     paths:
