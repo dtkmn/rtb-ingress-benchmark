@@ -32,7 +32,8 @@ jobs:
 
       - name: Run ZAP security gate against Go receiver
         id: zap_gate
-        uses: AgenticLab-AU/agentic-security-gateway/.github/actions/zap-security-gate@v0.4.0
+        # Pin the OSS action to the published commit until the next tag includes it.
+        uses: dtkmn/mcp-zap-server/.github/actions/zap-security-gate@d577ec1d63e4c1ab8e132fdb57925a5f896d162d
         with:
           # This benchmark service is mostly a thin JSON ingress API.
           # Start with a lightweight smoke target that proves consumer-repo
@@ -40,7 +41,7 @@ jobs:
           target-url: http://go-receiver:8080/health
           compose-override-file: .github/zap/docker-compose.go-receiver.yml
           compose-services: go-receiver zap mcp-server
-          mcp-server-image: ${{ github.event.inputs.mcp_server_image || vars.ASG_MCP_SERVER_IMAGE || 'ghcr.io/agenticlab-au/security-gateway:0.4.0' }}
+          mcp-server-image: ${{ github.event.inputs.mcp_server_image || vars.MCP_ZAP_SERVER_IMAGE || vars.ASG_MCP_SERVER_IMAGE || 'ghcr.io/dtkmn/mcp-zap-server:v0.6.0' }}
           output-dir: .zap-artifacts/go-receiver
           run-active-scan: "false"
           fail-on-new-findings: ${{ github.event.inputs.fail_on_new_findings || 'false' }}
