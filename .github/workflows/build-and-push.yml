@@ -1,4 +1,4 @@
-# This workflow builds and pushes Docker images for all services in the monorepo
+# This workflow builds and pushes Docker images for changed services in the monorepo
 # All services now use multi-stage Dockerfiles - no pre-build steps required!
 
 name: Build and Push All Services
@@ -15,8 +15,106 @@ on:
       - '.github/workflows/build-and-push.yml'
 
 jobs:
+  detect-changes:
+    name: Detect Changed Services
+    runs-on: ubuntu-latest
+
+    outputs:
+      services: ${{ steps.compute.outputs.services }}
+      has-services: ${{ steps.compute.outputs.has-services }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Compute service build matrix
+        id: compute
+        env:
+          SERVICE_MATRIX_JSON: >-
+            [
+              {"name":"quarkus-receiver","path":"./services/quarkus-receiver","dockerfile":"Dockerfile"},
+              {"name":"quarkus-receiver-native","path":"./services/quarkus-receiver","dockerfile":"Dockerfile.native"},
+              {"name":"go-receiver","path":"./services/go-receiver","dockerfile":"Dockerfile"},
+              {"name":"quarkus-sinker","path":"./services/quarkus-sinker","dockerfile":"Dockerfile"},
+              {"name":"rust-receiver","path":"./services/rust-receiver","dockerfile":"Dockerfile"},
+              {"name":"python-receiver","path":"./services/python-receiver","dockerfile":"Dockerfile"},
+              {"name":"spring-receiver","path":"./services/spring-receiver","dockerfile":"Dockerfile"},
+              {"name":"spring-virtual-receiver","path":"./services/spring-virtual-receiver","dockerfile":"Dockerfile"},
+              {"name":"node-receiver","path":"./services/node-receiver","dockerfile":"Dockerfile"}
+            ]
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.sha }}"
+            changed_files="$(git diff --name-only "${base_sha}...${head_sha}")"
+          else
+            base_sha="${{ github.event.before }}"
+            head_sha="${{ github.sha }}"
+
+            if [[ -z "${base_sha}" || "${base_sha}" == "0000000000000000000000000000000000000000" ]]; then
+              changed_files="$(git show --pretty='' --name-only "${head_sha}")"
+            else
+              changed_files="$(git diff --name-only "${base_sha}" "${head_sha}")"
+            fi
+          fi
+
+          printf 'Changed files:\n%s\n' "${changed_files:-<none>}"
+          export CHANGED_FILES="${changed_files}"
+
+          python3 - <<'PY'
+          import json
+          import os
+
+          services = json.loads(os.environ["SERVICE_MATRIX_JSON"])
+          changed_files = [
+              line.strip()
+              for line in os.environ.get("CHANGED_FILES", "").splitlines()
+              if line.strip()
+          ]
+
+          all_service_names = [service["name"] for service in services]
+          selected_names = set()
+          rebuild_all = False
+
+          for path in changed_files:
+              if path == ".github/workflows/build-and-push.yml":
+                  rebuild_all = True
+                  break
+              if path.startswith("services/quarkus-receiver/"):
+                  selected_names.update({"quarkus-receiver", "quarkus-receiver-native"})
+              elif path.startswith("services/go-receiver/"):
+                  selected_names.add("go-receiver")
+              elif path.startswith("services/quarkus-sinker/"):
+                  selected_names.add("quarkus-sinker")
+              elif path.startswith("services/rust-receiver/"):
+                  selected_names.add("rust-receiver")
+              elif path.startswith("services/python-receiver/"):
+                  selected_names.add("python-receiver")
+              elif path.startswith("services/spring-receiver/"):
+                  selected_names.add("spring-receiver")
+              elif path.startswith("services/spring-virtual-receiver/"):
+                  selected_names.add("spring-virtual-receiver")
+              elif path.startswith("services/node-receiver/"):
+                  selected_names.add("node-receiver")
+
+          if rebuild_all:
+              selected_names = set(all_service_names)
+
+          matrix = [service for service in services if service["name"] in selected_names]
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"services={json.dumps(matrix, separators=(',', ':'))}\n")
+              fh.write(f"has-services={'true' if matrix else 'false'}\n")
+          PY
+
   build-and-push:
     name: Build & Push Service
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-services == 'true'
     runs-on: ubuntu-latest
     
     permissions:
@@ -25,57 +123,14 @@ jobs:
 
     strategy:
       matrix:
-        service:
-          # --- Service 1: Quarkus Receiver (JVM) ---
-          - name: quarkus-receiver
-            path: ./services/quarkus-receiver
-            dockerfile: Dockerfile
-            
-          # --- Service 2: Quarkus Receiver (Native) ---
-          - name: quarkus-receiver-native
-            path: ./services/quarkus-receiver
-            dockerfile: Dockerfile.native
-            
-          # --- Service 3: Go Receiver ---
-          - name: go-receiver
-            path: ./services/go-receiver
-            dockerfile: Dockerfile
-            
-          # --- Service 4: Quarkus Sinker ---
-          - name: quarkus-sinker
-            path: ./services/quarkus-sinker
-            dockerfile: Dockerfile
-          
-          # --- Service 5: Rust Receiver ---
-          - name: rust-receiver
-            path: ./services/rust-receiver
-            dockerfile: Dockerfile
-
-          # --- Service 6: Python Receiver ---
-          - name: python-receiver
-            path: ./services/python-receiver
-            dockerfile: Dockerfile
-
-          # --- Service 7: Spring Receiver (WebFlux) ---
-          - name: spring-receiver
-            path: ./services/spring-receiver
-            dockerfile: Dockerfile
-
-          # --- Service 8: Spring Receiver (Virtual Threads) ---
-          - name: spring-virtual-receiver
-            path: ./services/spring-virtual-receiver
-            dockerfile: Dockerfile
-
-          # --- Service 9: Node Receiver ---
-          - name: node-receiver
-            path: ./services/node-receiver
-            dockerfile: Dockerfile
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
 
       - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
