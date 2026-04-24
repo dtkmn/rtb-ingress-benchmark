@@ -13,7 +13,17 @@ TOPIC_MAX_MESSAGE_BYTES="${BENCHMARK_KAFKA_TOPIC_MAX_MESSAGE_BYTES:-1048576}"
 
 wait_for_kafka() {
   echo "Waiting for Kafka to be ready at ${BOOTSTRAP_SERVER}..."
-  cub kafka-ready -b "${BOOTSTRAP_SERVER}" 1 60
+  local deadline=$((SECONDS + 60))
+
+  while (( SECONDS < deadline )); do
+    if kafka-broker-api-versions --bootstrap-server "${BOOTSTRAP_SERVER}" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+
+  echo "Timed out waiting for Kafka at ${BOOTSTRAP_SERVER}" >&2
+  return 1
 }
 
 current_partition_count() {
