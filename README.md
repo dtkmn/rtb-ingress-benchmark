@@ -2,7 +2,7 @@
 
 A living benchmark harness for RTB-style ingress services across popular backend runtimes and frameworks.
 
-## **Latest Published Benchmark Snapshots**
+## **Latest Benchmark Tops**
 
 This repo is maintained as a living benchmark harness, not a permanent winner board.
 Published snapshots are curated on meaningful changes, not emitted on a fixed schedule just to keep the dashboard fresh.
@@ -11,20 +11,21 @@ The source of truth for the published dashboard is `site/src/data/site-data.json
 
 | Mode | Snapshot | Git SHA | Current top throughput |
 |------|----------|---------|------------------------|
-| `confirm` | 2026-03-26 (`20260326-211147`) | `a2c1f1d` | Python / FastAPI, 8125.79 req/s |
+| `confirm` | 2026-04-24 (`20260424-202643`, local) | `7bdb712` | Go / Gin, 8561.37 req/s |
 | `http-only` | 2026-03-12 (`20260312-190020`) | `7432aed` | Quarkus JVM, 29987.52 req/s |
 | `enqueue` | 2026-03-12 (`20260312-192216`) | `a2c1f1d` | Quarkus JVM, 24491.75 req/s |
 
-Published snapshot defaults:
+Snapshot defaults:
 
 - **Workload:** `100` VUs for `30s` with `10s` warmup
 - **Budget:** receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g`
 - **Fairness controls:** `HTTP_SERVER_WORKERS=2`, `GOMAXPROCS=2`, `QUARKUS_HTTP_IO_THREADS=2`, Kafka `linger=10ms`, `batch=131072`, `request_timeout=5000ms`, `retries=5`, `retry_backoff=100ms`
+- **Latest local `confirm` addition:** `BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=2`, `1` repeat
 
-Current takeaways from the published snapshots:
+Current takeaways from the benchmark snapshots:
 
 - In `http-only`, Quarkus JVM topped raw throughput in this run; Rust and Go followed.
-- In the latest published `confirm` snapshot, Python / FastAPI led raw throughput, with Go and Spring WebFlux close behind.
+- In the latest local `confirm` run with `BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=2`, Go led raw throughput at 8561.37 req/s.
 - Cross-mode rank changes were material once Kafka confirmation stayed in the request path; the published dashboard makes those mode-specific rankings much easier to compare cleanly.
 
 Publishing policy:
@@ -420,7 +421,16 @@ BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=1 \
 scripts/run-benchmark-matrix.sh
 ```
 
-This is the cleanest profile currently available for "same lane count" comparisons. The default matrix is a fixed resource-envelope comparison: every receiver gets the same CPU and memory budget, but runtime and producer topology can differ. For example, `HTTP_SERVER_WORKERS=2` gives Python and Node two OS worker processes and therefore two process-local Kafka producers, while Java and Go currently use one process-level producer. Treat that as a valid deployment-shape experiment, not as pure language speed.
+This is the cleanest profile currently available for "same lane count" comparisons. The default matrix is a fixed resource-envelope comparison: every receiver gets the same CPU and memory budget, but runtime and producer topology can differ. The matrix script defaults `BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=2`, so Java and Rust expose two producer lanes by default; Python and Node get two process-local Kafka producers when `HTTP_SERVER_WORKERS=2`; Go currently uses one process-level writer. Treat that as a valid deployment-shape experiment, not as pure language speed.
+
+For Java-focused `confirm` experiments, keep producer lanes explicit in the command you publish:
+
+```bash
+BENCHMARK_SERVICES="quarkus-receiver spring-receiver spring-virtual-receiver" \
+BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=2 \
+REPEATS=3 \
+scripts/run-benchmark-matrix.sh
+```
 
 Keep Kafka producer tuning aligned too:
 

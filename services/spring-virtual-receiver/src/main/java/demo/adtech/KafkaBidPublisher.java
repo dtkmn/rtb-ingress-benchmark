@@ -11,6 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 
@@ -19,21 +22,22 @@ public class KafkaBidPublisher implements BidPublisher {
 
     private static final Logger LOG = LoggerFactory.getLogger(KafkaBidPublisher.class);
 
-    private final KafkaProducer<String, byte[]> producer;
+    private final List<KafkaProducer<String, byte[]>> producers;
     private final BenchmarkSettings settings;
 
     public KafkaBidPublisher(BenchmarkSettings settings) {
         this.settings = settings;
-        this.producer = settings.usesKafka() ? new KafkaProducer<>(buildProperties(settings)) : null;
+        this.producers = settings.usesKafka() ? buildProducerPool(settings) : List.of();
 
-        if (this.producer == null) {
+        if (this.producers.isEmpty()) {
             LOG.info("HTTP-only benchmark mode enabled; skipping Kafka producer initialization");
         } else {
             LOG.info(
-                    "Initialized Spring virtual receiver publisher (delivery_mode={}, topic={}, acks={}, retries={}, retry_backoff_ms={})",
+                    "Initialized Spring virtual receiver publisher (delivery_mode={}, topic={}, acks={}, producer_pool_size={}, retries={}, retry_backoff_ms={})",
                     settings.deliveryMode(),
                     settings.kafkaTopic(),
                     settings.kafkaAcks(),
+                    settings.kafkaProducerPoolSize(),
                     settings.kafkaRetries(),
                     settings.kafkaRetryBackoffMs()
             );
@@ -42,12 +46,13 @@ public class KafkaBidPublisher implements BidPublisher {
 
     @Override
     public CompletableFuture<Void> publish(String key, byte[] payload, boolean confirm) {
-        if (producer == null) {
+        if (producers.isEmpty()) {
             CompletableFuture<Void> failed = new CompletableFuture<>();
             failed.completeExceptionally(new PublisherUnavailableException(null));
             return failed;
         }
 
+        KafkaProducer<String, byte[]> producer = selectProducer(key);
         ProducerRecord<String, byte[]> record = new ProducerRecord<>(settings.kafkaTopic(), key, payload);
 
         if (!confirm) {
@@ -82,15 +87,28 @@ public class KafkaBidPublisher implements BidPublisher {
     @PreDestroy
     @Override
     public void close() {
-        if (producer != null) {
+        for (KafkaProducer<String, byte[]> producer : producers) {
             producer.close();
         }
     }
 
-    private static Properties buildProperties(BenchmarkSettings settings) {
+    private KafkaProducer<String, byte[]> selectProducer(String key) {
+        int index = Math.floorMod(Objects.hashCode(key), producers.size());
+        return producers.get(index);
+    }
+
+    private static List<KafkaProducer<String, byte[]>> buildProducerPool(BenchmarkSettings settings) {
+        ArrayList<KafkaProducer<String, byte[]>> producerPool = new ArrayList<>(settings.kafkaProducerPoolSize());
+        for (int index = 0; index < settings.kafkaProducerPoolSize(); index++) {
+            producerPool.add(new KafkaProducer<>(buildProperties(settings, index)));
+        }
+        return List.copyOf(producerPool);
+    }
+
+    private static Properties buildProperties(BenchmarkSettings settings, int producerIndex) {
         Properties properties = new Properties();
         properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, settings.kafkaBootstrapServers());
-        properties.put(ProducerConfig.CLIENT_ID_CONFIG, "spring-virtual-receiver");
+        properties.put(ProducerConfig.CLIENT_ID_CONFIG, "spring-virtual-receiver-" + (producerIndex + 1));
         properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
         properties.put(ProducerConfig.ACKS_CONFIG, settings.kafkaAcks());
