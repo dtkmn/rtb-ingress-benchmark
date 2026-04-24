@@ -24,6 +24,7 @@ public class BenchmarkSettings {
     private final int kafkaRequestTimeoutMs;
     private final int kafkaRetries;
     private final int kafkaRetryBackoffMs;
+    private final int kafkaProducerPoolSize;
 
     @Autowired
     public BenchmarkSettings(Environment environment) {
@@ -36,7 +37,8 @@ public class BenchmarkSettings {
                 environment.getProperty("benchmark.kafka.batch.bytes"),
                 environment.getProperty("benchmark.kafka.request.timeout.ms"),
                 environment.getProperty("benchmark.kafka.retries"),
-                environment.getProperty("benchmark.kafka.retry.backoff.ms")
+                environment.getProperty("benchmark.kafka.retry.backoff.ms"),
+                environment.getProperty("benchmark.kafka.producer.pool.size")
         );
     }
 
@@ -49,7 +51,8 @@ public class BenchmarkSettings {
             String kafkaBatchBytes,
             String kafkaRequestTimeoutMs,
             String kafkaRetries,
-            String kafkaRetryBackoffMs
+            String kafkaRetryBackoffMs,
+            String kafkaProducerPoolSize
     ) {
         this.deliveryMode = normalizeDeliveryMode(deliveryMode);
         this.kafkaBootstrapServers = normalizeKafkaBootstrapServers(kafkaBootstrapServers);
@@ -68,6 +71,11 @@ public class BenchmarkSettings {
                 100,
                 "BENCHMARK_KAFKA_RETRY_BACKOFF_MS"
         );
+        this.kafkaProducerPoolSize = normalizePositiveInt(
+                kafkaProducerPoolSize,
+                1,
+                "BENCHMARK_KAFKA_PRODUCER_POOL_SIZE"
+        );
     }
 
     public static BenchmarkSettings forTests(
@@ -76,7 +84,7 @@ public class BenchmarkSettings {
             String kafkaTopic,
             String kafkaAcks
     ) {
-        return new BenchmarkSettings(deliveryMode, kafkaBootstrapServers, kafkaTopic, kafkaAcks, null, null, null, null, null);
+        return new BenchmarkSettings(deliveryMode, kafkaBootstrapServers, kafkaTopic, kafkaAcks, null, null, null, null, null, null);
     }
 
     public boolean isConfirmDeliveryMode() {
@@ -125,6 +133,10 @@ public class BenchmarkSettings {
 
     public int kafkaRetryBackoffMs() {
         return kafkaRetryBackoffMs;
+    }
+
+    public int kafkaProducerPoolSize() {
+        return kafkaProducerPoolSize;
     }
 
     private static String normalizeDeliveryMode(String raw) {
