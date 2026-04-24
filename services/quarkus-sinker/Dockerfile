@@ -3,7 +3,7 @@
 # This Dockerfile builds the application and creates the container image in one step
 #
 # Usage:
-# docker build -t quarkus-sinker .
+# docker build -t quarkus-sinker:benchmark-local .
 # docker run -i --rm -p 8080:8080 quarkus-sinker
 ####
 

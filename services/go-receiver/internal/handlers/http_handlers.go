@@ -60,6 +60,7 @@ func ReceiveBid(c *gin.Context) {
 	// Access the producer from the 'kafka' package
 	err = kafka.KafkaWriter.WriteMessages(context.Background(),
 		kafkaGo.Message{
+			Key:   []byte(request.ID),
 			Value: msgBytes,
 		},
 	)

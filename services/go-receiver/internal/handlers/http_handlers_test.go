@@ -15,10 +15,12 @@ import (
 )
 
 type stubWriter struct {
-	err error
+	err      error
+	messages []kafkaGo.Message
 }
 
-func (s *stubWriter) WriteMessages(_ context.Context, _ ...kafkaGo.Message) error {
+func (s *stubWriter) WriteMessages(_ context.Context, messages ...kafkaGo.Message) error {
+	s.messages = append(s.messages, messages...)
 	return s.err
 }
 
@@ -34,6 +36,7 @@ func TestReceiveBid(t *testing.T) {
 		writer         kafka.MessageWriter
 		expectedStatus int
 		expectedBody   string
+		expectedKey    string
 	}{
 		{
 			name:           "ValidBidRequest",
@@ -42,6 +45,7 @@ func TestReceiveBid(t *testing.T) {
 			writer:         &stubWriter{},
 			expectedStatus: http.StatusOK,
 			expectedBody:   `{"status":"accepted"}`,
+			expectedKey:    "123",
 		},
 		{
 			name:           "InvalidJSON",
@@ -112,6 +116,14 @@ func TestReceiveBid(t *testing.T) {
 			assert.Equal(t, tc.expectedStatus, w.Code)
 			if tc.expectedBody != "" {
 				assert.JSONEq(t, tc.expectedBody, w.Body.String())
+			}
+			if tc.expectedKey != "" {
+				stub, ok := tc.writer.(*stubWriter)
+				if assert.True(t, ok) {
+					if assert.Len(t, stub.messages, 1) {
+						assert.Equal(t, tc.expectedKey, string(stub.messages[0].Key))
+					}
+				}
 			}
 		})
 	}

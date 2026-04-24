@@ -14,6 +14,20 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
 
+  # Spring WebFlux Receiver
+  - package-ecosystem: "maven"
+    directory: "/services/spring-receiver"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Spring Virtual Threads Receiver
+  - package-ecosystem: "maven"
+    directory: "/services/spring-virtual-receiver"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
   # Go Receiver
   - package-ecosystem: "gomod"
     directory: "/services/go-receiver"
@@ -28,7 +42,26 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
 
+  # Python Receiver
+  - package-ecosystem: "pip"
+    directory: "/services/python-receiver"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Node Receiver
+  - package-ecosystem: "npm"
+    directory: "/services/node-receiver"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
   # Docker dependencies
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
   - package-ecosystem: "docker"
     directory: "/services/quarkus-receiver"
     schedule:
@@ -46,6 +79,26 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/services/rust-receiver"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "docker"
+    directory: "/services/python-receiver"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "docker"
+    directory: "/services/spring-receiver"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "docker"
+    directory: "/services/spring-virtual-receiver"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "docker"
+    directory: "/services/node-receiver"
     schedule:
       interval: "weekly"
 

@@ -3,7 +3,7 @@
 # This Dockerfile builds the application and creates the container image in one step
 #
 # Usage:
-# docker build -t quarkus-receiver .
+# docker build -t quarkus-receiver:benchmark-local .
 # docker run -i --rm -p 8080:8080 quarkus-receiver
 ####
 
@@ -49,7 +49,6 @@ COPY --from=builder /build/target/quarkus-app/quarkus/ /deployments/quarkus/
 
 EXPOSE 8080
 USER 1000
-ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
 ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
 
-ENTRYPOINT ["java", "-jar", "/deployments/quarkus-run.jar"]
+ENTRYPOINT ["sh", "-c", "exec java ${JAVA_OPTS:-} -Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -jar ${JAVA_APP_JAR}"]

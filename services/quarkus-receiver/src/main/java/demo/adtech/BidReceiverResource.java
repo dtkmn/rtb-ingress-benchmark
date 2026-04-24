@@ -18,6 +18,8 @@ import java.util.Map;
 public class BidReceiverResource {
 
     private static final Logger LOG = Logger.getLogger(BidReceiverResource.class);
+    private static final Map<String, String> ACCEPTED = Map.of("status", "accepted");
+    private static final Map<String, String> KAFKA_UNAVAILABLE = Map.of("status", "kafka unavailable");
 
     @Inject
     BidPublisher bidPublisher;
@@ -50,23 +52,22 @@ public class BidReceiverResource {
         }
 
         if (benchmarkSettings.isHttpOnlyMode()) {
-            return Uni.createFrom().item(Response.ok(Map.of("status", "accepted")).build());
+            return Uni.createFrom().item(Response.ok(ACCEPTED).build());
         }
 
         // --- STAGE 3: PUSH TO KAFKA & ACKNOWLEDGE ---
-        // If it passed the filters, it's a "good" request. Push it to the Decision Engine.
-        var delivery = bidPublisher.publish(request);
-
         if (!benchmarkSettings.isConfirmDeliveryMode()) {
-            return Uni.createFrom().item(Response.ok(Map.of("status", "accepted")).build());
+            bidPublisher.publish(request);
+            return Uni.createFrom().item(Response.ok(ACCEPTED).build());
         }
 
-        return Uni.createFrom().completionStage(() -> delivery)
-                .replaceWith(Response.ok(Map.of("status", "accepted")).build())
+        // If it passed the filters, it's a "good" request. Push it to the Decision Engine.
+        return Uni.createFrom().completionStage(() -> bidPublisher.publish(request))
+                .replaceWith(Response.ok(ACCEPTED).build())
                 .onFailure().invoke(throwable -> LOG.error("Kafka delivery failed", throwable))
                 .onFailure().recoverWithItem(
                         Response.status(Response.Status.SERVICE_UNAVAILABLE)
-                                .entity(Map.of("status", "kafka unavailable"))
+                                .entity(KAFKA_UNAVAILABLE)
                                 .build()
                 );
     }

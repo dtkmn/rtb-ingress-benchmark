@@ -3,8 +3,8 @@
 # This Dockerfile builds the native executable and creates the container image in one step
 #
 # Usage:
-# docker build -f Dockerfile.native -t quarkus-receiver-native .
-# docker run -i --rm -p 8080:8080 quarkus-receiver-native
+# docker build -f Dockerfile.native -t quarkus-receiver-native:benchmark-local .
+# docker run -i --rm -p 8080:8080 quarkus-receiver-native:benchmark-local
 #
 # Note: Native builds can take several minutes and require significant memory
 ####

@@ -14,7 +14,7 @@ applicationImagePullPolicy: Never
 # Kafka configuration (KRaft mode - no ZooKeeper needed!)
 kafka:
   enabled: true
-  image: confluentinc/cp-kafka:7.8.3
+  image: confluentinc/cp-kafka:8.2.0
   replicas: 1
   port: 9092
   resources:
@@ -32,7 +32,7 @@ kafka:
 # PostgreSQL configuration
 postgresql:
   enabled: true
-  image: postgres:16-alpine
+  image: pgvector/pgvector:0.8.2-pg17-trixie
   replicas: 1
   port: 5432
   database: adtech
@@ -53,7 +53,7 @@ postgresql:
 # Prometheus configuration
 prometheus:
   enabled: true
-  image: prom/prometheus:v2.50.1
+  image: prom/prometheus:v3.8.1
   replicas: 1
   port: 9090
   resources:
@@ -71,7 +71,7 @@ prometheus:
 # Grafana configuration
 grafana:
   enabled: true
-  image: grafana/grafana:10.3.1
+  image: grafana/grafana:13.0.1
   replicas: 1
   port: 3000
   username: admin
@@ -105,7 +105,7 @@ jaeger:
 # Quarkus Receiver (JVM) configuration
 quarkusReceiver:
   enabled: true
-  image: quarkus-receiver:latest
+  image: quarkus-receiver:benchmark-local
   replicas: 3
   port: 8070
   resources:
@@ -125,7 +125,7 @@ quarkusReceiver:
 # Quarkus Receiver Native configuration
 quarkusReceiverNative:
   enabled: true
-  image: quarkus-receiver-native:latest
+  image: quarkus-receiver-native:benchmark-local
   replicas: 3
   port: 8071
   resources:
@@ -145,7 +145,7 @@ quarkusReceiverNative:
 # Go Receiver configuration
 goReceiver:
   enabled: true
-  image: go-receiver:latest
+  image: go-receiver:benchmark-local
   replicas: 3
   port: 8072
   resources:
@@ -165,7 +165,7 @@ goReceiver:
 # Rust Receiver configuration
 rustReceiver:
   enabled: true
-  image: rust-receiver:latest
+  image: rust-receiver:benchmark-local
   replicas: 3
   port: 8073
   resources:
@@ -185,7 +185,7 @@ rustReceiver:
 # Quarkus Sinker configuration
 quarkusSinker:
   enabled: true
-  image: quarkus-sinker:latest
+  image: quarkus-sinker:benchmark-local
   replicas: 1
   port: 8074
   resources:

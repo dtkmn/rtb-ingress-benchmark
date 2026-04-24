@@ -11,7 +11,7 @@ services:
   # Kafka in KRaft mode (no ZooKeeper needed!)
   kafka:
     <<: *benchmark-kafka
-    image: confluentinc/cp-kafka:7.8.3
+    image: confluentinc/cp-kafka:8.2.0
     ports:
       - "9092:9092"
     environment:
@@ -78,7 +78,7 @@ services:
 
   # --- NEW OBSERVABILITY STACK ---
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.8.1
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     # Needed for host.docker.internal on Linux, harmless on Mac
@@ -88,7 +88,7 @@ services:
       - "9090:9090"
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:13.0.1
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
@@ -100,7 +100,7 @@ services:
       - prometheus
   
   postgres:
-    image: "pgvector/pgvector:pg17" # Use a pgvector-enabled image
+    image: "pgvector/pgvector:0.8.2-pg17-trixie" # Use a pgvector-enabled image
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: user
@@ -121,7 +121,7 @@ services:
   # or run both to compare side-by-side.
   quarkus-receiver:
     <<: *benchmark-receiver
-    image: quarkus-receiver
+    image: quarkus-receiver:benchmark-local
     build:
       context: ./services/quarkus-receiver
       dockerfile: Dockerfile
@@ -153,7 +153,7 @@ services:
   # --- The Application (Native Version) ---
   quarkus-receiver-native:
     <<: *benchmark-receiver
-    image: quarkus-receiver-native
+    image: quarkus-receiver-native:benchmark-local
     build:
       context: ./services/quarkus-receiver
       dockerfile: Dockerfile.native
@@ -183,7 +183,7 @@ services:
       start_period: 10s
 
   quarkus-sinker:
-    image: quarkus-sinker
+    image: quarkus-sinker:benchmark-local
     build:
       context: ./services/quarkus-sinker
       dockerfile: Dockerfile
@@ -212,7 +212,7 @@ services:
 
   go-receiver:
     <<: *benchmark-receiver
-    image: go-receiver
+    image: go-receiver:benchmark-local
     build:
       context: ./services/go-receiver # Assumes Go app is in a sibling folder
       dockerfile: Dockerfile
@@ -241,7 +241,7 @@ services:
   
   rust-receiver:
     <<: *benchmark-receiver
-    image: rust-receiver
+    image: rust-receiver:benchmark-local
     build:
       context: ./services/rust-receiver
       dockerfile: Dockerfile
@@ -255,6 +255,7 @@ services:
       BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS: ${BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS:-5000}
       BENCHMARK_KAFKA_RETRIES: ${BENCHMARK_KAFKA_RETRIES:-5}
       BENCHMARK_KAFKA_RETRY_BACKOFF_MS: ${BENCHMARK_KAFKA_RETRY_BACKOFF_MS:-100}
+      BENCHMARK_KAFKA_PRODUCER_POOL_SIZE: ${BENCHMARK_KAFKA_PRODUCER_POOL_SIZE:-1}
       HTTP_SERVER_WORKERS: ${HTTP_SERVER_WORKERS:-2}
     ports:
       - "8073:8080"
@@ -270,7 +271,7 @@ services:
 
   python-receiver:
     <<: *benchmark-receiver
-    image: python-receiver
+    image: python-receiver:benchmark-local
     build:
       context: ./services/python-receiver
       dockerfile: Dockerfile
@@ -299,7 +300,7 @@ services:
 
   spring-receiver:
     <<: *benchmark-receiver
-    image: spring-receiver
+    image: spring-receiver:benchmark-local
     build:
       context: ./services/spring-receiver
       dockerfile: Dockerfile
@@ -329,7 +330,7 @@ services:
 
   spring-virtual-receiver:
     <<: *benchmark-receiver
-    image: spring-virtual-receiver
+    image: spring-virtual-receiver:benchmark-local
     build:
       context: ./services/spring-virtual-receiver
       dockerfile: Dockerfile
@@ -358,7 +359,7 @@ services:
 
   node-receiver:
     <<: *benchmark-receiver
-    image: node-receiver
+    image: node-receiver:benchmark-local
     build:
       context: ./services/node-receiver
       dockerfile: Dockerfile

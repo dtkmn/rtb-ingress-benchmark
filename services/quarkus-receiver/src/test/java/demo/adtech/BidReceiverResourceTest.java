@@ -1,6 +1,7 @@
 package demo.adtech;
 
 import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.common.ResourceArg;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.kafka.InjectKafkaCompanion;
 import io.quarkus.test.kafka.KafkaCompanionResource;
@@ -23,7 +24,10 @@ import static org.junit.jupiter.api.Assertions.*;
  * Uses Quarkus Dev Services to automatically spin up a Kafka container.
  */
 @QuarkusTest
-@QuarkusTestResource(KafkaCompanionResource.class)
+@QuarkusTestResource(value = KafkaCompanionResource.class, initArgs = {
+        @ResourceArg(name = "strimzi.kafka.image", value = "quay.io/strimzi-test-container/test-container:0.115.0-kafka-4.2.0"),
+        @ResourceArg(name = "kraft", value = "true")
+})
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class BidReceiverResourceTest {
 
@@ -234,5 +238,3 @@ class BidReceiverResourceTest {
                 .statusCode(400);
     }
 }
-
-
