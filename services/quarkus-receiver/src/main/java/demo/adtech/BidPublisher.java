@@ -48,10 +48,10 @@ public class BidPublisher {
     @ConfigProperty(name = "benchmark.kafka.retry.backoff.ms", defaultValue = "100")
     int retryBackoffMs;
 
-    @ConfigProperty(name = "benchmark.kafka.send.buffer.bytes", defaultValue = "131072")
+    @ConfigProperty(name = "benchmark.kafka.send.buffer.bytes", defaultValue = "-1")
     int sendBufferBytes;
 
-    @ConfigProperty(name = "benchmark.kafka.receive.buffer.bytes", defaultValue = "131072")
+    @ConfigProperty(name = "benchmark.kafka.receive.buffer.bytes", defaultValue = "-1")
     int receiveBufferBytes;
 
     private KafkaProducer<String, BidRequest> producer;
@@ -84,8 +84,8 @@ public class BidPublisher {
                 ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG,
                 computeDeliveryTimeoutMs(requestTimeoutMs, lingerMs, effectiveRetries, effectiveRetryBackoffMs)
         );
-        props.put(ProducerConfig.SEND_BUFFER_CONFIG, sendBufferBytes);
-        props.put(ProducerConfig.RECEIVE_BUFFER_CONFIG, receiveBufferBytes);
+        applyOptionalBufferConfig(props, ProducerConfig.SEND_BUFFER_CONFIG, sendBufferBytes);
+        applyOptionalBufferConfig(props, ProducerConfig.RECEIVE_BUFFER_CONFIG, receiveBufferBytes);
 
         producer = new KafkaProducer<>(props);
         LOG.infof(
@@ -108,30 +108,30 @@ public class BidPublisher {
         }
 
         ProducerRecord<String, BidRequest> record = new ProducerRecord<>(topic, request.id, request);
-        CompletableFuture<Void> delivery = new CompletableFuture<>();
 
+        try {
+            if (!benchmarkSettings.isConfirmDeliveryMode()) {
+                producer.send(record);
+                return CompletableFuture.completedFuture(null);
+            }
+        } catch (Exception e) {
+            return CompletableFuture.failedStage(e);
+        }
+
+        CompletableFuture<Void> delivery = new CompletableFuture<>();
         try {
             producer.send(record, (metadata, exception) -> {
                 if (exception != null) {
-                    if (benchmarkSettings.isConfirmDeliveryMode()) {
-                        delivery.completeExceptionally(exception);
-                    } else {
-                        LOG.error("Kafka enqueue error", exception);
-                    }
+                    delivery.completeExceptionally(exception);
                     return;
                 }
 
                 delivery.complete(null);
             });
-        } catch (Exception e) {
-            return CompletableFuture.failedStage(e);
+            return delivery;
+        } catch (Exception exception) {
+            return CompletableFuture.failedStage(exception);
         }
-
-        if (!benchmarkSettings.isConfirmDeliveryMode()) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        return delivery;
     }
 
     @PreDestroy
@@ -155,5 +155,11 @@ public class BidPublisher {
 
         LOG.warnf("Ignoring invalid %s=%d; defaulting to %d", envName, rawValue, fallback);
         return fallback;
+    }
+
+    private static void applyOptionalBufferConfig(Properties props, String key, int value) {
+        if (value >= 0) {
+            props.put(key, value);
+        }
     }
 }
