@@ -115,6 +115,83 @@ Kafka producer tuning should be kept aligned across compared services where the 
 
 The Java, Go, Rust, and Spring lanes support explicit retry count and retry backoff. `aiokafka` exposes retry backoff but not a fixed retry-count knob, so the Python lane still uses `BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS` as its retry budget. KafkaJS does not expose the same cross-request batching controls as the Java, Go, Rust, and aiokafka clients, so the Node lane applies the shared request timeout and retry tuning but can only approximate the rest.
 
+## Fairness Profiles
+
+Do not confuse "same environment variables" with fairness. The same values can create different runtime topologies:
+
+- Python and Node use `HTTP_SERVER_WORKERS` as OS worker processes, and each process creates its own Kafka producer.
+- Rust uses `HTTP_SERVER_WORKERS` as Actix worker threads inside one process and uses `BENCHMARK_KAFKA_PRODUCER_POOL_SIZE` for producer slots.
+- Go uses `GOMAXPROCS` for scheduler parallelism and currently has one process-level Kafka writer.
+- Quarkus and Spring lanes currently use one process-level Java `KafkaProducer`.
+- Spring virtual threads intentionally do not map cleanly to a fixed worker-count setting.
+
+Use one of these profiles when interpreting results:
+
+`strict-1`
+
+- One HTTP execution lane where the runtime allows it.
+- One logical Kafka producer lane.
+- Best current profile for topology-normalized comparisons.
+- Example:
+
+```bash
+HTTP_SERVER_WORKERS=1 \
+GOMAXPROCS=1 \
+QUARKUS_HTTP_IO_THREADS=1 \
+BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=1 \
+scripts/run-benchmark-matrix.sh
+```
+
+`fixed-envelope`
+
+- Same container CPU and memory budget for every service.
+- Runtime-specific concurrency knobs default from `BENCHMARK_RECEIVER_CPUS`.
+- This is the default matrix behavior.
+- Good for "what performs best inside this resource envelope" comparisons, but not a pure language or framework comparison.
+
+`idiomatic`
+
+- Each lane uses the most natural production-ish shape inside the same CPU and memory budget.
+- This can be useful, but it must be labeled clearly because worker and producer topology may differ materially.
+
+Do not publish a `strict-2` profile until every lane has an explicit and documented way to expose two logical Kafka producer lanes or a defensible equivalent. Today, setting `HTTP_SERVER_WORKERS=2` gives Python and Node multiple process-local producers, while the Java and Go lanes still use a single process-level producer. That is a valid fixed-envelope experiment, not a strict producer-normalized result.
+
+## Kafka Publish Mechanics By Lane
+
+Every accepted request still becomes one Kafka record. No lane performs manual app-level aggregation of multiple HTTP requests into one Kafka batch. Any batching happens inside the Kafka client library, and those client libraries do not behave identically.
+
+| lane | client library | app payload before send | enqueue behavior | `confirm` waits for | client-side batching and queueing notes | notable caveat |
+|---|---|---|---|---|---|---|
+| `quarkus-receiver`, `quarkus-receiver-native` | Java `KafkaProducer` | `BidRequest` object serialized by the producer serializer | `producer.send(record, callback)` and return immediately in non-confirm modes | Java producer callback completion | Uses Java client `linger.ms`, `batch.size`, retries, and `delivery.timeout.ms` | Same producer code in both Quarkus lanes, but different runtime packaging does not make this a pure framework-only comparison once Kafka is in the path |
+| `spring-receiver` | Java `KafkaProducer` | pre-serialized `byte[]` | `producer.send(record)` inside a Reactor `Mono` in enqueue mode | Java producer callback bridged into `Mono` completion | Uses the same Java client batching knobs as Quarkus | Producer client is similar to Quarkus, but app/runtime integration is different and payload serialization happens before send |
+| `spring-virtual-receiver` | Java `KafkaProducer` | pre-serialized `byte[]` | `producer.send(record)` and return completed future in enqueue mode | Java producer callback bridged into `CompletableFuture` completion | Uses the same Java client batching knobs as Quarkus and Spring WebFlux | Virtual threads change the HTTP/runtime side, not the underlying Kafka client semantics |
+| `go-receiver` | `segmentio/kafka-go` `Writer` | pre-serialized `[]byte` | `Writer.Async` is enabled only in enqueue mode | `WriteMessages(...)` return from the writer in confirm mode | Writer batches with `BatchTimeout`, `BatchBytes`, and `LeastBytes` balancing | `kafka-go` writer batching and retry behavior are not a one-to-one match with the Java or librdkafka clients |
+| `rust-receiver` | `librdkafka` `FutureProducer` | JSON `String` | `send_result(record)` in enqueue mode | `FutureProducer.send(record, queue_timeout)` future completion in confirm mode | Uses `linger.ms`, `batch.size`, retries, internal producer queueing, and explicit queue-timeout retry behavior | Local enqueue retry semantics come from librdkafka and are materially different from Java, `kafka-go`, and `aiokafka` |
+| `python-receiver` | `aiokafka` `AIOKafkaProducer` | pre-serialized `bytes` | `await producer.send(...)` to enqueue and obtain a delivery future | `await delivery_future` in confirm mode | Uses `linger_ms` and `max_batch_size`; local scheduling can wait up to `request_timeout_ms` | `aiokafka` exposes retry backoff but not the same fixed retry-count control as Java, Go, or Rust |
+| `node-receiver` | KafkaJS producer | `Buffer` payload | `producer.send({ messages: [...] })` promise is fired and not awaited after the HTTP response in enqueue mode | `await producer.send(...)` promise in confirm mode | Uses KafkaJS internal buffering; this repo does not have a shared `linger` or `batch.size` equivalent for this lane | KafkaJS confirm mode also forces `maxInFlightRequests=1`, and its batching model is not comparable one-for-one with the other clients |
+
+Read this table before inferring language quality from `confirm` mode. Once Kafka confirmation stays in the request path, you are benchmarking runtime plus Kafka client behavior plus broker interaction, not just HTTP/framework cost.
+
+## HTTP Execution Model By Lane
+
+These services share the same HTTP contract, but they do not share the same execution model. Some handlers return reactive types, some block the request path directly, some default to multiple OS processes, and some rely on event-loop or thread-pool scheduling inside one process. If you skip this table, you will keep telling yourself fake stories about what `confirm` mode is measuring.
+
+| lane | HTTP/runtime model | default service topology in this repo | Kafka publish shape in request path | what the request is actually waiting on in `confirm` | why it can behave differently |
+|---|---|---|---|---|---|
+| `python-receiver` | FastAPI + Uvicorn asyncio handler (`async def`) | `uvicorn --workers ${HTTP_SERVER_WORKERS}` means multiple OS processes; each worker runs app startup and creates its own `AIOKafkaProducer` | `await producer.send(...)` to enqueue, then `await delivery_future` | asyncio task suspension until `aiokafka` delivery future resolves | `HTTP_SERVER_WORKERS=2` is effectively two Python processes and two producer instances, not two threads in one process |
+| `node-receiver` | Fastify async handler on the Node event loop | `HTTP_SERVER_WORKERS>1` uses Node cluster, so each worker is a separate OS process with its own KafkaJS producer | `await producer.send(...)` in `confirm`; in `enqueue` it fires the promise and returns before completion | event-loop task waits on KafkaJS `send()` promise | confirm mode also forces `maxInFlightRequests=1`, so the event-loop model is only part of the story |
+| `rust-receiver` | Actix Web async handler on Tokio | one process with `HttpServer::workers(HTTP_SERVER_WORKERS)` Actix worker threads; shared `FutureProducer` pool inside process | `producer.send(...).await` in `confirm`; `send_result(...)` in `enqueue` | async task waits on librdkafka delivery future and any local queue-timeout wait | this is async, but it is still one process with shared producer state unless you explicitly scale replicas or producer pool size |
+| `go-receiver` | Gin handler written in straightforward blocking style | one process, `GOMAXPROCS` limits scheduler parallelism; no separate worker-process model | handler calls `KafkaWriter.WriteMessages(...)` directly | the handler itself blocks until `kafka-go` returns from `WriteMessages(...)` | same contract does not mean same async shape; this lane currently pays Kafka wait directly on the handler path |
+| `quarkus-receiver`, `quarkus-receiver-native` | RESTEasy Reactive endpoint returning `Uni<Response>` | one process with Quarkus I/O/event-loop parallelism controlled by `QUARKUS_HTTP_IO_THREADS`; one application-scoped Java producer | `producer.send(record, callback)` bridged into `CompletionStage`, then into `Uni` | reactive pipeline waits for Java producer callback completion | reactive HTTP does not eliminate Kafka wait; it just changes how that waiting is represented and scheduled |
+| `spring-receiver` | Spring WebFlux controller returning `Mono<ResponseEntity<?>>` | one process; `HTTP_SERVER_WORKERS` maps to Reactor Netty `ioWorkerCount`; one singleton Java producer | `producer.send(record, callback)` bridged into `Mono.create(...)` | Reactor chain waits for Java producer callback completion | this is non-blocking at the HTTP layer, but producer completion still decides request latency |
+| `spring-virtual-receiver` | Spring MVC controller on virtual threads | one process; virtual threads enabled, so this lane relies on container CPU budget rather than an explicit server worker-count knob | controller calls publisher and `join()`s the returned `CompletableFuture` in `confirm` | the virtual-thread request blocks waiting for producer completion | virtual threads make blocking cheaper than platform threads, but they do not make the Kafka confirm wait disappear |
+
+The practical takeaway is simple:
+
+- `async`, `reactive`, `virtual-thread`, and `blocking` are not interchangeable labels.
+- A higher `confirm` score can come from better producer/runtime interaction even when `http-only` is worse.
+- A lower `confirm` score does not automatically mean the language is slower; it can mean that this lane parks more expensively, exposes callback overhead, or keeps less useful work in flight.
+
 The local benchmark broker also supports these topic and broker knobs:
 
 - `BENCHMARK_KAFKA_TOPIC_PARTITIONS=<n>`
@@ -138,6 +215,8 @@ End-to-end sinker runs also support:
 - Keep Kafka topology, topic configuration, and downstream consumers constant across compared services.
 - Run at least one warmup and at least three measured runs.
 - Keep the receiver and Kafka resource budgets fixed across compared services.
+- Label the fairness profile (`strict-1`, `fixed-envelope`, or `idiomatic`) before publishing or comparing rankings.
+- Do not call a `confirm` result a language-speed result unless you have also shown compatible `http-only` and producer-normalized evidence.
 - For sinker or end-to-end runs, record whether DLQ was enabled.
 - Record p50, p95, p99, throughput, non-2xx/non-204 responses, and resource usage.
 - Do not compare results across different hardware without saying so explicitly.

@@ -30,7 +30,7 @@ Successfully migrated from **Kafka + ZooKeeper** to **Kafka KRaft mode** (ZooKee
 
 ```yaml
 kafka:
-  image: confluentinc/cp-kafka:7.8.3
+  image: confluentinc/cp-kafka:8.2.0
   environment:
     KAFKA_NODE_ID: 1
     KAFKA_PROCESS_ROLES: 'broker,controller'
@@ -39,6 +39,16 @@ kafka:
     CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
     KAFKA_HEAP_OPTS: -Xmx512M -Xms256M
 ```
+
+### Topic Bootstrap
+
+The topic bootstrap script uses Kafka's own CLI readiness probe:
+
+```bash
+kafka-broker-api-versions --bootstrap-server kafka:29092
+```
+
+Do not reintroduce `cub kafka-ready` here. `confluentinc/cp-kafka:8.2.0` does not ship that helper, and using it causes the benchmark runner to time out waiting for the `bids` topic even though the broker itself is running.
 
 ### Kubernetes (Helm) Configuration
 
@@ -61,7 +71,7 @@ sleep 45
 # Verify Kafka is running
 docker-compose exec kafka kafka-topics --bootstrap-server localhost:9092 --list
 
-# Should see: bids
+# Should see: bids and bids-dlq
 ```
 
 ### Comprehensive Test

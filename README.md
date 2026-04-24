@@ -2,24 +2,38 @@
 
 A living benchmark harness for RTB-style ingress services across popular backend runtimes and frameworks.
 
-## **Latest Verified Benchmark Snapshot**
+## **Latest Published Benchmark Snapshots**
 
 This repo is maintained as a living benchmark harness, not a permanent winner board.
+Published snapshots are curated on meaningful changes, not emitted on a fixed schedule just to keep the dashboard fresh.
 
-- **Snapshot date:** 2026-03-12
-- **Git SHA:** `7432aed42fb6cfee1d6844334ea4ba3422837a06`
-- **Baseline modes:** `http-only`, `confirm`, `enqueue`
+The source of truth for the published dashboard is `site/src/data/site-data.json`.
+
+| Mode | Snapshot | Git SHA | Current top throughput |
+|------|----------|---------|------------------------|
+| `confirm` | 2026-03-26 (`20260326-211147`) | `a2c1f1d` | Python / FastAPI, 8125.79 req/s |
+| `http-only` | 2026-03-12 (`20260312-190020`) | `7432aed` | Quarkus JVM, 29987.52 req/s |
+| `enqueue` | 2026-03-12 (`20260312-192216`) | `a2c1f1d` | Quarkus JVM, 24491.75 req/s |
+
+Published snapshot defaults:
+
 - **Workload:** `100` VUs for `30s` with `10s` warmup
 - **Budget:** receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g`
 - **Fairness controls:** `HTTP_SERVER_WORKERS=2`, `GOMAXPROCS=2`, `QUARKUS_HTTP_IO_THREADS=2`, Kafka `linger=10ms`, `batch=131072`, `request_timeout=5000ms`, `retries=5`, `retry_backoff=100ms`
 
-Current takeaways from that baseline:
+Current takeaways from the published snapshots:
 
 - In `http-only`, Quarkus JVM topped raw throughput in this run; Rust and Go followed.
-- In `confirm`, Go led raw throughput, while Rust, Spring virtual threads, Spring WebFlux, Quarkus Native, and Quarkus JVM formed a relatively tight middle pack.
+- In the latest published `confirm` snapshot, Python / FastAPI led raw throughput, with Go and Spring WebFlux close behind.
 - Cross-mode rank changes were material once Kafka confirmation stayed in the request path; the published dashboard makes those mode-specific rankings much easier to compare cleanly.
 
-For the published snapshot data, see the GitHub Pages dashboard and the committed dashboard data snapshot in `site/src/data/site-data.json`. For the rules behind these runs, see [docs/BENCHMARK_CONTRACT.md](docs/BENCHMARK_CONTRACT.md). For the monthly timeline and update policy, see [docs/BENCHMARK_HISTORY.md](docs/BENCHMARK_HISTORY.md).
+Publishing policy:
+
+- Local runs are exploratory by default and should not be treated as published baselines automatically.
+- Promote a run only when there is a meaningful trigger such as a major runtime/framework upgrade, a request-path change, a Kafka/client tuning change, a new service, or a benchmark-method change.
+- Update the published snapshot only when the result is trusted, comparable enough to interpret, and worth calling out.
+
+For the published snapshot data, see the GitHub Pages dashboard and the committed dashboard data snapshot in `site/src/data/site-data.json`. For the rules behind these runs, see [docs/BENCHMARK_CONTRACT.md](docs/BENCHMARK_CONTRACT.md). For the timeline and publication policy, see [docs/BENCHMARK_HISTORY.md](docs/BENCHMARK_HISTORY.md).
 
 ## **1\. Business Case**
 
@@ -284,11 +298,11 @@ kubectl port-forward -n argocd svc/argocd-server 8443:443
 kind create cluster --name adtech-demo --config kind-config.yaml
 
 # Load local images into kind
-kind load docker-image quarkus-receiver:latest --name adtech-demo
-kind load docker-image quarkus-receiver-native:latest --name adtech-demo
-kind load docker-image go-receiver:latest --name adtech-demo
-kind load docker-image rust-receiver:latest --name adtech-demo
-kind load docker-image quarkus-sinker:latest --name adtech-demo
+kind load docker-image quarkus-receiver:benchmark-local --name adtech-demo
+kind load docker-image quarkus-receiver-native:benchmark-local --name adtech-demo
+kind load docker-image go-receiver:benchmark-local --name adtech-demo
+kind load docker-image rust-receiver:benchmark-local --name adtech-demo
+kind load docker-image quarkus-sinker:benchmark-local --name adtech-demo
 
 # Deploy with Helm
 helm install rtb-ingress-benchmark ./helm/rtb-ingress-benchmark \
@@ -315,8 +329,9 @@ For deploying to cloud Kubernetes (EKS, AKS, GKE):
 
 1. **Push images to a container registry**:
    ```bash
-   docker tag quarkus-receiver:latest your-registry.io/quarkus-receiver:latest
-   docker push your-registry.io/quarkus-receiver:latest
+   GIT_SHA=$(git rev-parse --short HEAD)
+   docker tag quarkus-receiver:benchmark-local your-registry.io/quarkus-receiver:${GIT_SHA}
+   docker push your-registry.io/quarkus-receiver:${GIT_SHA}
    ```
 
 2. **Update `values.yaml`**:
@@ -324,7 +339,7 @@ For deploying to cloud Kubernetes (EKS, AKS, GKE):
    serviceType: LoadBalancer  # or use Ingress
    applicationImagePullPolicy: IfNotPresent
    quarkusReceiver:
-     image: your-registry.io/quarkus-receiver:latest
+     image: your-registry.io/quarkus-receiver:abc1234
    ```
 
 3. **Use managed services** (optional):
@@ -395,6 +410,18 @@ scripts/run-benchmark-matrix.sh
 
 `spring-virtual-receiver` enables Spring Boot virtual threads, so Spring's own pool-size properties are intentionally not used there. That lane is constrained by the container CPU budget rather than an explicit server worker-count setting.
 
+For a stricter single-lane comparison, pin both HTTP execution and producer topology down:
+
+```bash
+HTTP_SERVER_WORKERS=1 \
+GOMAXPROCS=1 \
+QUARKUS_HTTP_IO_THREADS=1 \
+BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=1 \
+scripts/run-benchmark-matrix.sh
+```
+
+This is the cleanest profile currently available for "same lane count" comparisons. The default matrix is a fixed resource-envelope comparison: every receiver gets the same CPU and memory budget, but runtime and producer topology can differ. For example, `HTTP_SERVER_WORKERS=2` gives Python and Node two OS worker processes and therefore two process-local Kafka producers, while Java and Go currently use one process-level producer. Treat that as a valid deployment-shape experiment, not as pure language speed.
+
 Keep Kafka producer tuning aligned too:
 
 ```bash
@@ -414,6 +441,8 @@ scripts/run-benchmark-matrix.sh
 ```
 
 Not every client library exposes identical producer knobs. The Java, Go, Rust, and Spring lanes support explicit retry count and retry backoff; `aiokafka` exposes retry backoff but not a fixed retry-count knob, so its retry budget is still bounded by `BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS`. KafkaJS can apply the shared request timeout and retry settings, but its batching model is not a one-to-one match.
+
+See the [Fairness Profiles](docs/BENCHMARK_CONTRACT.md#fairness-profiles), [Kafka Publish Mechanics By Lane](docs/BENCHMARK_CONTRACT.md#kafka-publish-mechanics-by-lane), and [HTTP Execution Model By Lane](docs/BENCHMARK_CONTRACT.md#http-execution-model-by-lane) sections before drawing conclusions from `confirm` mode. No lane performs manual app-level multi-request Kafka batching, and the services do not share one common async/blocking execution model.
 
 The local Kafka broker is now more explicit too:
 
