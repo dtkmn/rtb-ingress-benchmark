@@ -19,7 +19,7 @@ spec:
       restartPolicy: OnFailure
       containers:
       - name: kafka-topic-creator
-        image: confluentinc/cp-kafka:7.5.0
+        image: {{ .Values.kafka.image }}
         command:
           - /bin/bash
           - -c

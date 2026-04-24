@@ -56,11 +56,11 @@ docker images | grep -E "quarkus-receiver|go-receiver|rust-receiver|quarkus-sink
 
 Expected output:
 ```
-quarkus-receiver         latest    ...    387MB
-quarkus-receiver-native  latest    ...    271MB
-go-receiver              latest    ...    51.6MB
-rust-receiver            latest    ...    132MB
-quarkus-sinker           latest    ...    582MB
+quarkus-receiver         benchmark-local    ...    387MB
+quarkus-receiver-native  benchmark-local    ...    271MB
+go-receiver              benchmark-local    ...    51.6MB
+rust-receiver            benchmark-local    ...    132MB
+quarkus-sinker           benchmark-local    ...    582MB
 ```
 
 ## Step 2: Create a kind Cluster
@@ -82,11 +82,11 @@ Since we're using a local cluster, we need to load the images into kind:
 
 ```bash
 # Load all application images
-kind load docker-image quarkus-receiver:latest --name adtech-demo
-kind load docker-image quarkus-receiver-native:latest --name adtech-demo
-kind load docker-image go-receiver:latest --name adtech-demo
-kind load docker-image rust-receiver:latest --name adtech-demo
-kind load docker-image quarkus-sinker:latest --name adtech-demo
+kind load docker-image quarkus-receiver:benchmark-local --name adtech-demo
+kind load docker-image quarkus-receiver-native:benchmark-local --name adtech-demo
+kind load docker-image go-receiver:benchmark-local --name adtech-demo
+kind load docker-image rust-receiver:benchmark-local --name adtech-demo
+kind load docker-image quarkus-sinker:benchmark-local --name adtech-demo
 
 # Verify images are loaded
 docker exec -it adtech-demo-control-plane crictl images | grep -E "quarkus|go-receiver|rust-receiver"
@@ -286,7 +286,7 @@ kubectl top nodes
 docker exec -it adtech-demo-control-plane crictl images
 
 # Reload images if needed
-kind load docker-image quarkus-receiver:latest --name adtech-demo
+kind load docker-image quarkus-receiver:benchmark-local --name adtech-demo
 ```
 
 ### Services not accessible
