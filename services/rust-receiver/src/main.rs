@@ -92,35 +92,50 @@ struct AppState {
 // --- Data Models (mirroring the Go service) ---
 #[derive(Serialize, Deserialize, Debug)]
 struct BidRequest {
+    #[serde(default)]
     id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     site: Option<BidSite>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     app: Option<BidApp>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     device: Option<BidDevice>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     user: Option<BidUser>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct BidSite {
+    #[serde(skip_serializing_if = "Option::is_none")]
     id: Option<String>,
-    domain: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    domain: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct BidApp {
-    bundle: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bundle: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct BidDevice {
+    #[serde(skip_serializing_if = "Option::is_none")]
     ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     os: Option<String>,
-    lmt: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     ua: Option<String>,
+    #[serde(default)]
+    lmt: i32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct BidUser {
-    id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id: Option<String>,
 }
 
 fn is_valid_bid_request(bid_request: &BidRequest) -> bool {
@@ -204,7 +219,11 @@ fn http_workers_from_env() -> usize {
         .unwrap_or(1)
 }
 
-fn build_record<'a>(topic: &'a str, key: &'a str, payload: &'a str) -> FutureRecord<'a, str, str> {
+fn build_record<'a>(
+    topic: &'a str,
+    key: &'a str,
+    payload: &'a [u8],
+) -> FutureRecord<'a, str, [u8]> {
     FutureRecord::to(topic).payload(payload).key(key)
 }
 
@@ -302,7 +321,7 @@ async fn receive_bid(
     // --- STAGE 3: PUSH TO KAFKA & ACKNOWLEDGE ---
     let bid_request = bid_request.into_inner();
     let request_key = bid_request.id.clone();
-    let payload = match serde_json::to_string(&bid_request) {
+    let payload = match serde_json::to_vec(&bid_request) {
         Ok(p) => p,
         Err(_) => {
             REQUESTS_REJECTED.inc();
@@ -456,13 +475,14 @@ mod tests {
             id: "bid-1".to_string(),
             site: None,
             app: Some(BidApp {
-                bundle: "com.example.app".to_string(),
+                id: None,
+                bundle: Some("com.example.app".to_string()),
             }),
             device: Some(BidDevice {
                 ip: None,
                 os: None,
-                lmt: 0,
                 ua: None,
+                lmt: 0,
             }),
             user: None,
         };
@@ -479,8 +499,8 @@ mod tests {
             device: Some(BidDevice {
                 ip: None,
                 os: None,
-                lmt: 0,
                 ua: None,
+                lmt: 0,
             }),
             user: None,
         };
@@ -501,12 +521,38 @@ mod tests {
 
     #[test]
     fn future_record_uses_request_id_as_key() {
-        let payload = "{\"id\":\"bid-1\"}";
+        let payload = br#"{"id":"bid-1"}"#;
         let record = build_record("bids", "bid-1", payload);
 
         assert_eq!(record.topic, "bids");
         assert_eq!(record.key, Some("bid-1"));
-        assert_eq!(record.payload, Some(payload));
+        assert_eq!(record.payload, Some(payload.as_slice()));
+    }
+
+    #[test]
+    fn serialized_payload_omits_absent_fields_like_python() {
+        let request = BidRequest {
+            id: "bid-1".to_string(),
+            site: Some(BidSite {
+                id: Some("site-1".to_string()),
+                domain: Some("example.com".to_string()),
+            }),
+            app: None,
+            device: Some(BidDevice {
+                ip: Some("1.2.3.4".to_string()),
+                os: None,
+                ua: Some("test-agent".to_string()),
+                lmt: 0,
+            }),
+            user: None,
+        };
+
+        let payload = serde_json::to_vec(&request).expect("request can be serialized");
+
+        assert_eq!(
+            payload,
+            br#"{"id":"bid-1","site":{"id":"site-1","domain":"example.com"},"device":{"ip":"1.2.3.4","ua":"test-agent","lmt":0}}"#
+        );
     }
 
     #[test]

@@ -13,4 +13,4 @@ COPY app ./app
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers ${HTTP_SERVER_WORKERS:-2}"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers ${HTTP_SERVER_WORKERS:-1}"]

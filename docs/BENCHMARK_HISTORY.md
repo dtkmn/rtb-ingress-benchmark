@@ -13,7 +13,7 @@ This page keeps the dated benchmark trail so the README can stay focused on the 
   - new service/runtime added to the matrix
   - intentional benchmark-method change
 - Skip a month rather than publishing noise.
-- If hardware, workload shape, or fairness controls changed, say so explicitly and do not imply direct comparability.
+- If hardware, workload shape, benchmark preset, or fairness controls changed, say so explicitly and do not imply direct comparability.
 - A result is usually worth publishing only when the change is material enough to interpret, for example a visible throughput, latency, efficiency, or cross-mode rank shift.
 
 ## Current Published Snapshots
