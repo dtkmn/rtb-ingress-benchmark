@@ -8,6 +8,7 @@ Any result published from this repo must include:
 - git commit SHA
 - hardware and OS
 - container runtime and version
+- benchmark preset
 - benchmark mode
 - Kafka acknowledgement setting
 - load generator settings
@@ -82,6 +83,10 @@ The load harness supports:
 - `BASE_URL`
 - `REPEATS`
 - `BUILD_IMAGES`
+- `BENCHMARK_PRESET=strict-1|custom`
+- `BENCHMARK_FAIRNESS_PROFILE=strict-1|fixed-envelope|idiomatic`
+- `BENCHMARK_ENFORCE_PYTHON_RUST_CONFIRM_PARITY=0|1`
+- `BENCHMARK_VALIDATE_ONLY=0|1`
 - `VUS`
 - `DURATION`
 - `RATE`
@@ -95,11 +100,31 @@ The load harness supports:
 - `BENCHMARK_RECEIVER_CPUSET`
 - `BENCHMARK_KAFKA_CPUSET`
 
-When these concurrency knobs are not set explicitly, the matrix runner derives a default parallelism from `BENCHMARK_RECEIVER_CPUS` and exports:
+`BENCHMARK_PRESET=strict-1` is the first-class preset for topology-normalized cross-service `confirm` runs. It selects:
+
+- `BENCHMARK_DELIVERY_MODE=confirm`
+- `BENCHMARK_FAIRNESS_PROFILE=strict-1`
+- `HTTP_SERVER_WORKERS=1`
+- `GOMAXPROCS=1`
+- `QUARKUS_HTTP_IO_THREADS=1`
+- `BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=1`
+- `BENCHMARK_KAFKA_TOPIC=bids-strict-1` unless you set a topic explicitly
+- `BENCHMARK_KAFKA_TOPIC_PARTITIONS=1`
+- `BENCHMARK_KAFKA_RETRIES=0`
+- `LMT_PERCENT=0`
+- `BLOCKED_IP_PERCENT=0`
+
+This is now the default benchmark preset. It also uses a strict-compatible default service set: Quarkus JVM, Quarkus native, Go, Rust, Python/FastAPI, Spring WebFlux, and Node/Fastify. `spring-virtual-receiver` is intentionally excluded because Spring virtual threads do not expose a clean one-HTTP-lane control; if you explicitly include it with `BENCHMARK_PRESET=strict-1`, the runner fails before building or starting receivers. The preset uses `bids-strict-1` by default so old local `bids` topics with three partitions do not block normal strict runs. The runner still inspects the effective Kafka topic after broker startup and fails before benchmarking if the selected topic is wider than one partition.
+
+`BENCHMARK_PRESET=custom` keeps the runner in manual mode. Use it for `http-only`, `enqueue`, Java-only producer-pool experiments, or fixed resource-envelope comparisons.
+
+When `BENCHMARK_PRESET=custom` and `BENCHMARK_FAIRNESS_PROFILE=fixed-envelope` or `idiomatic` is used, the matrix runner derives a default parallelism from `BENCHMARK_RECEIVER_CPUS` and exports:
 
 - `HTTP_SERVER_WORKERS=ceil(BENCHMARK_RECEIVER_CPUS)`
 - `GOMAXPROCS=ceil(BENCHMARK_RECEIVER_CPUS)`
 - `QUARKUS_HTTP_IO_THREADS=ceil(BENCHMARK_RECEIVER_CPUS)`
+
+In those profiles it also defaults `BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=2`, `BENCHMARK_KAFKA_TOPIC_PARTITIONS=3`, and `BENCHMARK_KAFKA_RETRIES=5`.
 
 Spring WebFlux maps `HTTP_SERVER_WORKERS` to Reactor Netty’s `reactor.netty.ioWorkerCount` so its event-loop parallelism stays explicit in the matrix.
 
@@ -132,15 +157,14 @@ Use one of these profiles when interpreting results:
 
 - One HTTP execution lane where the runtime allows it.
 - One logical Kafka producer lane.
+- One Kafka topic partition, removing client-partitioner skew from the comparison.
+- `BENCHMARK_KAFKA_RETRIES=0`, because Python's `aiokafka` lane does not expose the same fixed retry-count control as Rust/librdkafka.
+- No filtered traffic (`LMT_PERCENT=0`, `BLOCKED_IP_PERCENT=0`) in `confirm` mode, so the measured requests actually stay on the Kafka-confirm path.
 - Best current profile for topology-normalized comparisons.
 - Example:
 
 ```bash
-HTTP_SERVER_WORKERS=1 \
-GOMAXPROCS=1 \
-QUARKUS_HTTP_IO_THREADS=1 \
-BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=1 \
-scripts/run-benchmark-matrix.sh
+BENCHMARK_PRESET=strict-1 scripts/run-benchmark-matrix.sh
 ```
 
 `fixed-envelope`
@@ -148,7 +172,6 @@ scripts/run-benchmark-matrix.sh
 - Same container CPU and memory budget for every service.
 - Runtime-specific concurrency knobs default from `BENCHMARK_RECEIVER_CPUS`.
 - `scripts/run-benchmark-matrix.sh` defaults `BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=2` for lanes that support explicit producer slots.
-- This is the default matrix behavior.
 - Good for "what performs best inside this resource envelope" comparisons, but not a pure language or framework comparison.
 
 `idiomatic`
@@ -156,7 +179,9 @@ scripts/run-benchmark-matrix.sh
 - Each lane uses the most natural production-ish shape inside the same CPU and memory budget.
 - This can be useful, but it must be labeled clearly because worker and producer topology may differ materially.
 
-Do not publish a whole-matrix `strict-2` profile until every lane has an explicit and documented way to expose two logical Kafka producer lanes or a defensible equivalent. Today, the matrix script defaults Rust and the Java lanes to `BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=2`, Python and Node get one producer per worker process, and Go still uses one process-level writer. That is a valid fixed-envelope experiment, not a strict whole-matrix producer-normalized result.
+Do not publish a whole-matrix `strict-2` profile until every lane has an explicit and documented way to expose two logical Kafka producer lanes or a defensible equivalent. Under `fixed-envelope`, Rust and the Java lanes default to `BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=2`, Python and Node get one producer per worker process, and Go still uses one process-level writer. That is a valid fixed-envelope experiment, not a strict whole-matrix producer-normalized result.
+
+For Python/Rust `confirm` runs, the matrix fails fast unless `BENCHMARK_FAIRNESS_PROFILE=strict-1`, `HTTP_SERVER_WORKERS=1`, `BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=1`, `BENCHMARK_KAFKA_RETRIES=0`, and `BENCHMARK_KAFKA_TOPIC_PARTITIONS=1`. You can disable that protection with `BENCHMARK_ENFORCE_PYTHON_RUST_CONFIRM_PARITY=0`, but then the result is explicitly not an apples-to-apples throughput comparison. The `strict-1` preset leaves this protection on.
 
 ## Kafka Publish Mechanics By Lane
 
@@ -168,7 +193,7 @@ Every accepted request still becomes one Kafka record. No lane performs manual a
 | `spring-receiver` | Java `KafkaProducer` pool | pre-serialized `byte[]` | selected producer calls `send(record)` inside a Reactor `Mono` in enqueue mode | Java producer callback bridged into `Mono` completion | Uses the same Java client batching knobs and producer-pool knob as Quarkus | Producer client is similar to Quarkus, but app/runtime integration is different and payload serialization happens before send |
 | `spring-virtual-receiver` | Java `KafkaProducer` pool | pre-serialized `byte[]` | selected producer calls `send(record)` and returns completed future in enqueue mode | Java producer callback bridged into `CompletableFuture` completion | Uses the same Java client batching knobs and producer-pool knob as Quarkus and Spring WebFlux | Virtual threads change the HTTP/runtime side, not the underlying Kafka client semantics |
 | `go-receiver` | `segmentio/kafka-go` `Writer` | pre-serialized `[]byte` | `Writer.Async` is enabled only in enqueue mode | `WriteMessages(...)` return from the writer in confirm mode | Writer batches with `BatchTimeout`, `BatchBytes`, and `LeastBytes` balancing | `kafka-go` writer batching and retry behavior are not a one-to-one match with the Java or librdkafka clients |
-| `rust-receiver` | `librdkafka` `FutureProducer` | JSON `String` | `send_result(record)` in enqueue mode | `FutureProducer.send(record, queue_timeout)` future completion in confirm mode | Uses `linger.ms`, `batch.size`, retries, internal producer queueing, and explicit queue-timeout retry behavior | Local enqueue retry semantics come from librdkafka and are materially different from Java, `kafka-go`, and `aiokafka` |
+| `rust-receiver` | `librdkafka` `FutureProducer` | pre-serialized `Vec<u8>` with absent optional fields omitted | `send_result(record)` in enqueue mode | `FutureProducer.send(record, queue_timeout)` future completion in confirm mode | Uses `linger.ms`, `batch.size`, retries, internal producer queueing, and explicit queue-timeout retry behavior | Local enqueue retry semantics come from librdkafka and are materially different from Java, `kafka-go`, and `aiokafka` |
 | `python-receiver` | `aiokafka` `AIOKafkaProducer` | pre-serialized `bytes` | `await producer.send(...)` to enqueue and obtain a delivery future | `await delivery_future` in confirm mode | Uses `linger_ms` and `max_batch_size`; local scheduling can wait up to `request_timeout_ms` | `aiokafka` exposes retry backoff but not the same fixed retry-count control as Java, Go, or Rust |
 | `node-receiver` | KafkaJS producer | `Buffer` payload | `producer.send({ messages: [...] })` promise is fired and not awaited after the HTTP response in enqueue mode | `await producer.send(...)` promise in confirm mode | Uses KafkaJS internal buffering; this repo does not have a shared `linger` or `batch.size` equivalent for this lane | KafkaJS confirm mode also forces `maxInFlightRequests=1`, and its batching model is not comparable one-for-one with the other clients |
 
@@ -217,7 +242,9 @@ End-to-end sinker runs also support:
 - Keep Kafka topology, topic configuration, and downstream consumers constant across compared services.
 - Run at least one warmup and at least three measured runs.
 - Keep the receiver and Kafka resource budgets fixed across compared services.
+- Label the benchmark preset (`strict-1` or `custom`) before publishing or comparing rankings.
 - Label the fairness profile (`strict-1`, `fixed-envelope`, or `idiomatic`) before publishing or comparing rankings.
+- Keep Python/Rust `confirm` comparisons under the default guardrails unless you are deliberately running a non-normalized topology experiment.
 - Do not call a `confirm` result a language-speed result unless you have also shown compatible `http-only` and producer-normalized evidence.
 - For sinker or end-to-end runs, record whether DLQ was enabled.
 - Record p50, p95, p99, throughput, non-2xx/non-204 responses, and resource usage.
@@ -232,6 +259,12 @@ Build and run the matrix with the conservative defaults:
 scripts/run-benchmark-matrix.sh
 ```
 
+That is equivalent to:
+
+```bash
+BENCHMARK_PRESET=strict-1 scripts/run-benchmark-matrix.sh
+```
+
 The default local resource budget is:
 
 - receiver: `2.0` CPUs and `768m`
@@ -240,13 +273,13 @@ The default local resource budget is:
 Run fire-and-forget ingress mode explicitly:
 
 ```bash
-BENCHMARK_DELIVERY_MODE=enqueue BENCHMARK_KAFKA_ACKS=0 scripts/run-benchmark-matrix.sh
+BENCHMARK_PRESET=custom BENCHMARK_DELIVERY_MODE=enqueue BENCHMARK_KAFKA_ACKS=0 scripts/run-benchmark-matrix.sh
 ```
 
 Run HTTP-only mode explicitly:
 
 ```bash
-BENCHMARK_DELIVERY_MODE=http-only scripts/run-benchmark-matrix.sh
+BENCHMARK_PRESET=custom BENCHMARK_DELIVERY_MODE=http-only scripts/run-benchmark-matrix.sh
 ```
 
 Run a single target manually with k6:

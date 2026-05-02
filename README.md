@@ -9,24 +9,29 @@ Published snapshots are curated on meaningful changes, not emitted on a fixed sc
 
 The source of truth for the published dashboard is `site/src/data/site-data.json`.
 
-| Mode | Snapshot | Git SHA | Current top throughput |
-|------|----------|---------|------------------------|
-| `confirm` | 2026-04-24 (`20260424-202643`, local) | `7bdb712` | Go / Gin, 8561.37 req/s |
-| `http-only` | 2026-03-12 (`20260312-190020`) | `7432aed` | Quarkus JVM, 29987.52 req/s |
-| `enqueue` | 2026-03-12 (`20260312-192216`) | `a2c1f1d` | Quarkus JVM, 24491.75 req/s |
+| Mode | Snapshot | Git SHA | Primary metric | Current top result |
+|------|----------|---------|----------------|--------------------|
+| `confirm` | 2026-05-03 (`20260503-003926`, local strict-1) | `740d25a` | `req/s / measured stack avg core` | Spring WebFlux, 15015.54 req/s/core |
+| `http-only` | 2026-05-03 (`20260503-005939`, local fixed-envelope) | `740d25a` | `req/s / measured stack avg core` | Rust / Actix, 38480.29 req/s/core |
+| `enqueue` | 2026-05-03 (`20260503-012856`, local fixed-envelope) | `740d25a` | `req/s / measured stack avg core` | Rust / Actix, 16677.20 req/s/core |
 
-Snapshot defaults:
+Current local snapshot controls:
 
 - **Workload:** `100` VUs for `30s` with `10s` warmup
 - **Budget:** receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g`
-- **Fairness controls:** `HTTP_SERVER_WORKERS=2`, `GOMAXPROCS=2`, `QUARKUS_HTTP_IO_THREADS=2`, Kafka `linger=10ms`, `batch=131072`, `request_timeout=5000ms`, `retries=5`, `retry_backoff=100ms`
-- **Latest local `confirm` addition:** `BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=2`, `1` repeat
+- **Strict `confirm`:** `BENCHMARK_PRESET=strict-1`, one HTTP lane, one producer lane, one Kafka partition, topic `bids-strict-1`, retries `0`; excludes `spring-virtual-receiver`
+- **`http-only` and `enqueue`:** `BENCHMARK_PRESET=custom`, `BENCHMARK_FAIRNESS_PROFILE=fixed-envelope`, derived parallelism `2`, producer pool `2`, topic `bids` with `3` partitions; includes all 8 receiver lanes
+- **Kafka tuning:** `linger=10ms`, `batch=131072`, `request_timeout=5000ms`, `retry_backoff=100ms`; `confirm` uses `acks=1`, `enqueue` uses `acks=0`
 
 Current takeaways from the benchmark snapshots:
 
-- In `http-only`, Quarkus JVM topped raw throughput in this run; Rust and Go followed.
-- In the latest local `confirm` run with `BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=2`, Go led raw throughput at 8561.37 req/s.
+- In the latest strict-1 `confirm` run, Spring WebFlux led the primary CPU-normalized result at 15015.54 req/s/core and also led raw throughput at 7306.14 req/s.
+- Rust ranked second on CPU-normalized throughput at 13937.31 req/s/core and led memory-normalized throughput at 11844.60 req/s/GiB.
+- In the latest fixed-envelope `http-only` run, Rust led both CPU-normalized capacity at 38480.29 req/s/core and raw throughput at 26227.59 req/s.
+- In the latest fixed-envelope `enqueue` run, Rust led CPU-normalized capacity at 16677.20 req/s/core; Quarkus JVM led raw throughput at 24915.85 req/s.
+- The strict `confirm` row and fixed-envelope `http-only`/`enqueue` rows answer different topology questions, so do not collapse them into one universal winner.
 - Cross-mode rank changes were material once Kafka confirmation stayed in the request path; the published dashboard makes those mode-specific rankings much easier to compare cleanly.
+- Raw `req/s avg` is not the primary capacity-planning result. Treat `req/s / measured stack avg core` as the main efficiency ranking, then use raw throughput, memory efficiency, latency, and error rates as guardrails.
 
 Publishing policy:
 
@@ -354,12 +359,13 @@ This repository is maintained as a living comparison harness. Historical winners
 
 The benchmark contract lives in [docs/BENCHMARK_CONTRACT.md](docs/BENCHMARK_CONTRACT.md). The default comparison mode is now:
 
+- `BENCHMARK_PRESET=strict-1`
 - `BENCHMARK_DELIVERY_MODE=confirm`
 - `BENCHMARK_KAFKA_ACKS=1`
 
-That makes the out-of-the-box run compare HTTP request handling plus Kafka delivery confirmation instead of mixing fire-and-forget and delivery-confirmed semantics.
+That makes the out-of-the-box run compare HTTP request handling plus Kafka delivery confirmation with one HTTP execution lane, one producer lane, one Kafka partition, and no filtered traffic. The strict preset uses only lanes that can satisfy that topology cleanly and defaults to the isolated Kafka topic `bids-strict-1`.
 
-For framework-only cost, run `BENCHMARK_DELIVERY_MODE=http-only`. That mode skips Kafka startup and measures HTTP parsing, validation, filtering, and response handling only.
+For framework-only cost, run `BENCHMARK_PRESET=custom BENCHMARK_DELIVERY_MODE=http-only`. That mode skips Kafka startup and measures HTTP parsing, validation, filtering, and response handling only.
 
 ## **8\. Load Testing**
 
@@ -370,16 +376,22 @@ BASE_URL=http://localhost:8070 VUS=100 DURATION=30s k6 run k6/load-test.js
 BASE_URL=http://localhost:8072 RATE=5000 DURATION=30s PREALLOCATED_VUS=200 MAX_VUS=400 k6 run k6/load-test.js
 ```
 
-Run the full matrix with the reproducible wrapper:
+Run the strict-compatible cross-service `confirm` matrix with the reproducible wrapper:
 
 ```bash
 scripts/run-benchmark-matrix.sh
 ```
 
+That is equivalent to:
+
+```bash
+BENCHMARK_PRESET=strict-1 scripts/run-benchmark-matrix.sh
+```
+
 Run fire-and-forget mode explicitly:
 
 ```bash
-BENCHMARK_DELIVERY_MODE=enqueue scripts/run-benchmark-matrix.sh
+BENCHMARK_PRESET=custom BENCHMARK_DELIVERY_MODE=enqueue scripts/run-benchmark-matrix.sh
 ```
 
 `enqueue` now defaults `BENCHMARK_KAFKA_ACKS` to `0` unless you override it explicitly.
@@ -387,7 +399,7 @@ BENCHMARK_DELIVERY_MODE=enqueue scripts/run-benchmark-matrix.sh
 Run the pure receiver path without Kafka:
 
 ```bash
-BENCHMARK_DELIVERY_MODE=http-only scripts/run-benchmark-matrix.sh
+BENCHMARK_PRESET=custom BENCHMARK_DELIVERY_MODE=http-only scripts/run-benchmark-matrix.sh
 ```
 
 Override the default resource budget explicitly when needed:
@@ -401,6 +413,9 @@ scripts/run-benchmark-matrix.sh
 Make concurrency explicit when you want to compare scheduler behavior instead of framework defaults:
 
 ```bash
+BENCHMARK_PRESET=custom \
+BENCHMARK_FAIRNESS_PROFILE=fixed-envelope \
+BENCHMARK_ENFORCE_PYTHON_RUST_CONFIRM_PARITY=0 \
 HTTP_SERVER_WORKERS=2 \
 GOMAXPROCS=2 \
 QUARKUS_HTTP_IO_THREADS=2 \
@@ -411,21 +426,29 @@ scripts/run-benchmark-matrix.sh
 
 `spring-virtual-receiver` enables Spring Boot virtual threads, so Spring's own pool-size properties are intentionally not used there. That lane is constrained by the container CPU budget rather than an explicit server worker-count setting.
 
-For a stricter single-lane comparison, pin both HTTP execution and producer topology down:
+The matrix defaults to `BENCHMARK_PRESET=strict-1`, which pins the `confirm` path to one HTTP lane where the runtime exposes it, one producer lane, one Kafka partition, an isolated `bids-strict-1` topic, and no fixed retry-count advantage for lanes whose clients expose retry counts. That is the right default if you intend to compare throughput directly.
+
+For the same strict preset explicitly:
 
 ```bash
-HTTP_SERVER_WORKERS=1 \
-GOMAXPROCS=1 \
-QUARKUS_HTTP_IO_THREADS=1 \
-BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=1 \
-scripts/run-benchmark-matrix.sh
+BENCHMARK_PRESET=strict-1 scripts/run-benchmark-matrix.sh
 ```
 
-This is the cleanest profile currently available for "same lane count" comparisons. The default matrix is a fixed resource-envelope comparison: every receiver gets the same CPU and memory budget, but runtime and producer topology can differ. The matrix script defaults `BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=2`, so Java and Rust expose two producer lanes by default; Python and Node get two process-local Kafka producers when `HTTP_SERVER_WORKERS=2`; Go currently uses one process-level writer. Treat that as a valid deployment-shape experiment, not as pure language speed.
+The strict preset excludes `spring-virtual-receiver` because virtual threads cannot be cleanly reduced to one HTTP execution lane. If you explicitly add that lane under `BENCHMARK_PRESET=strict-1`, the script fails before building receivers.
+
+`fixed-envelope` is still available when you want a deployment-shape experiment: every receiver gets the same CPU and memory budget, but runtime and producer topology can differ. In that profile, the matrix script defaults `BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=2`, so Java and Rust expose two producer lanes by default; Python and Node get two process-local Kafka producers when `HTTP_SERVER_WORKERS=2`; Go currently uses one process-level writer. Treat that as resource-envelope data, not pure language speed.
+
+```bash
+BENCHMARK_PRESET=custom \
+BENCHMARK_FAIRNESS_PROFILE=fixed-envelope \
+BENCHMARK_ENFORCE_PYTHON_RUST_CONFIRM_PARITY=0 \
+scripts/run-benchmark-matrix.sh
+```
 
 For Java-focused `confirm` experiments, keep producer lanes explicit in the command you publish:
 
 ```bash
+BENCHMARK_PRESET=custom \
 BENCHMARK_SERVICES="quarkus-receiver spring-receiver spring-virtual-receiver" \
 BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=2 \
 REPEATS=3 \
@@ -445,6 +468,9 @@ scripts/run-benchmark-matrix.sh
 For clients that expose it, you can also make retry behavior explicit:
 
 ```bash
+BENCHMARK_PRESET=custom \
+BENCHMARK_FAIRNESS_PROFILE=fixed-envelope \
+BENCHMARK_ENFORCE_PYTHON_RUST_CONFIRM_PARITY=0 \
 BENCHMARK_KAFKA_RETRIES=5 \
 BENCHMARK_KAFKA_RETRY_BACKOFF_MS=100 \
 scripts/run-benchmark-matrix.sh
@@ -471,6 +497,13 @@ Each matrix run now produces collated artifacts under `results/<timestamp>/`, in
 - `req/s / measured stack avg core`
 - `req/s / measured stack avg GiB`
 - estimated Kafka-added latency per service
+
+Read the result tables in this order:
+
+1. `req/s / measured stack avg core` is the primary result for cost-efficient capacity. It answers how much useful throughput the measured receiver+Kafka stack produced per average CPU core it actually consumed.
+2. `req/s avg` is the raw throughput sanity check. A service can win this by burning more CPU, so do not treat it as the whole story.
+3. `req/s / measured stack avg GiB` is the memory-density check. It matters when instance packing, memory limits, or container density are part of the decision.
+4. p95/p99 latency and non-2xx/non-204 responses are veto metrics. A CPU-efficient result with bad tail latency or errors is not a win.
 
 To keep the README readable, only the latest verified baseline snapshot should live near the top of this file. Put monthly updates and historical snapshots in [docs/BENCHMARK_HISTORY.md](docs/BENCHMARK_HISTORY.md).
 

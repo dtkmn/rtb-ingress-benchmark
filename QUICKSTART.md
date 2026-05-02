@@ -111,14 +111,14 @@ Once everything is running:
 # Manual k6 run
 BASE_URL=http://localhost:8070 VUS=100 DURATION=30s k6 run k6/load-test.js
 
-# Run the full receiver matrix with benchmark defaults
+# Run the strict-compatible confirm matrix
 scripts/run-benchmark-matrix.sh
 
 # Fire-and-forget mode must be explicit
-BENCHMARK_DELIVERY_MODE=enqueue BENCHMARK_KAFKA_ACKS=0 scripts/run-benchmark-matrix.sh
+BENCHMARK_PRESET=custom BENCHMARK_DELIVERY_MODE=enqueue BENCHMARK_KAFKA_ACKS=0 scripts/run-benchmark-matrix.sh
 
 # HTTP-only mode isolates framework and JSON cost from Kafka
-BENCHMARK_DELIVERY_MODE=http-only scripts/run-benchmark-matrix.sh
+BENCHMARK_PRESET=custom BENCHMARK_DELIVERY_MODE=http-only scripts/run-benchmark-matrix.sh
 
 # Tighten the local benchmark budget explicitly
 BENCHMARK_RECEIVER_CPUS=1.5 BENCHMARK_RECEIVER_MEMORY=512m scripts/run-benchmark-matrix.sh
@@ -126,14 +126,14 @@ BENCHMARK_RECEIVER_CPUS=1.5 BENCHMARK_RECEIVER_MEMORY=512m scripts/run-benchmark
 
 `results/<timestamp>/summary.md` now includes normalized metrics in addition to raw throughput so you can compare both winner-by-throughput and winner-by-efficiency. When a compatible opposite-mode run exists, the collator also adds a matched mode-delta section and writes `mode-comparison.csv`.
 
-For tighter apples-to-apples runs, make concurrency knobs explicit instead of relying on framework defaults:
+The matrix defaults to `BENCHMARK_PRESET=strict-1`: one HTTP lane where the runtime exposes it, one logical producer lane, one Kafka partition on the isolated `bids-strict-1` topic, no filtered traffic, and `BENCHMARK_KAFKA_RETRIES=0` so Python/Rust `confirm` results do not compare different retry semantics. The strict default service set excludes `spring-virtual-receiver`; explicitly adding that lane under the strict preset fails fast.
+
+For a resource-envelope experiment, opt in explicitly:
 
 ```bash
-HTTP_SERVER_WORKERS=2 \
-GOMAXPROCS=2 \
-QUARKUS_HTTP_IO_THREADS=2 \
-SPRING_TOMCAT_THREADS_MAX=200 \
-SPRING_TOMCAT_THREADS_MIN_SPARE=10 \
+BENCHMARK_PRESET=custom \
+BENCHMARK_FAIRNESS_PROFILE=fixed-envelope \
+BENCHMARK_ENFORCE_PYTHON_RUST_CONFIRM_PARITY=0 \
 scripts/run-benchmark-matrix.sh
 ```
 

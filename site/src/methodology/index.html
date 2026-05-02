@@ -70,6 +70,7 @@
         </div>
         <ul class="notes-list">
           <li>Workload shape, service set, CPU budget, memory budget, and Kafka broker budget.</li>
+          <li>The `strict-1` preset pins confirm runs to one clean HTTP lane where possible, one logical producer lane, and one Kafka partition.</li>
           <li>Explicit concurrency knobs such as `HTTP_SERVER_WORKERS`, `GOMAXPROCS`, and Quarkus I/O threads.</li>
           <li>Shared Kafka producer tuning where the client library allows it.</li>
           <li>Mode-specific rankings instead of one global leaderboard.</li>
