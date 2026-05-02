@@ -109,6 +109,30 @@ def test_enqueue_mode_accepts_after_local_publish() -> None:
     assert publisher.calls[0]["confirm"] is False
 
 
+def test_published_payload_omits_absent_fields_with_stable_order() -> None:
+    publisher = StubPublisher()
+    app = create_app(
+        settings=Settings(delivery_mode=DELIVERY_MODE_CONFIRM),
+        publisher=publisher,
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/bid-request",
+            json={
+                "id": "bid-1",
+                "site": {"id": "site-1", "domain": "example.com"},
+                "device": {"ip": "1.2.3.4", "ua": "test-agent", "lmt": 0},
+            },
+        )
+
+    assert response.status_code == 200
+    assert (
+        publisher.calls[0]["payload"]
+        == b'{"id":"bid-1","site":{"id":"site-1","domain":"example.com"},"device":{"ip":"1.2.3.4","ua":"test-agent","lmt":0}}'
+    )
+
+
 def test_missing_required_fields_returns_bad_request() -> None:
     app = create_app(settings=Settings(delivery_mode=DELIVERY_MODE_HTTP_ONLY))
     with TestClient(app) as client:
