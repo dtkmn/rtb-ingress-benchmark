@@ -2,8 +2,9 @@
 
 This repository is a benchmark harness, not a permanent leaderboard.
 
-Any result published from this repo must include:
+Any newly published result from this repo must include:
 
+- snapshot ID listed in `site/src/data/published-snapshots.json`
 - benchmark date
 - git commit SHA
 - hardware and OS

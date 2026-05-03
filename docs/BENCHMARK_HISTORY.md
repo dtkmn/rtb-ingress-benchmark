@@ -18,30 +18,41 @@ This page keeps the dated benchmark trail so the README can stay focused on the 
 
 ## Current Published Snapshots
 
-- **Services:** Quarkus JVM, Quarkus Native, Go, Rust, Python/FastAPI, Spring WebFlux, Spring virtual threads, Node/Fastify
+- **Services:** May 3 `confirm` uses 7 strict-compatible receiver lanes; May 3 `http-only` and `enqueue` use all 8 receiver lanes
 - **Workload:** `100` VUs for `30s` with `10s` warmup
 - **Budget:** receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g`
 - **Dashboard source of truth:** [`site/src/data/site-data.json`](../site/src/data/site-data.json)
+- **Published snapshot allowlist:** [`site/src/data/published-snapshots.json`](../site/src/data/published-snapshots.json)
 
-| Mode | Snapshot | Git SHA | Current top throughput |
+| Mode | Snapshot | Git SHA | Primary result |
 |---|---|---|---|
-| `confirm` | `20260326-211147` | `a2c1f1d` | Python / FastAPI, 8125.79 req/s |
-| `http-only` | `20260312-190020` | `7432aed` | Quarkus JVM, 29987.52 req/s |
-| `enqueue` | `20260312-192216` | `a2c1f1d` | Quarkus JVM, 24491.75 req/s |
+| `confirm` | `20260503-003926` | `740d25a` | Spring WebFlux, 15015.54 req/s/core |
+| `http-only` | `20260503-005939` | `740d25a` | Rust / Actix, 38480.29 req/s/core |
+| `enqueue` | `20260503-012856` | `740d25a` | Rust / Actix, 16677.20 req/s/core |
 
 Current snapshot notes:
 
 - `http-only` is the cleanest read on framework/runtime overhead for this setup.
 - `confirm` is the better read on conservative ingress behavior with Kafka delivery confirmation in the request path.
-- The latest published `confirm` snapshot is newer than the latest published `http-only` and `enqueue` snapshots, so do not treat the three modes as a single synchronized baseline.
+- The May 3 published set covers all three modes, but `confirm` uses `strict-1` while `http-only` and `enqueue` use `fixed-envelope`; do not imply one synchronized topology across all three rows.
 - Matched mode deltas are useful only when the compared runs share compatible metadata.
+- The older published March snapshots predate explicit `benchmark_preset` and `fairness_profile` metadata; do not retrofit `strict-1` labels onto them.
 
 ## Snapshot Log
 
 | Snapshot Date | Git SHA | Modes | Services | Workload / Budget | Result Links | Notes |
 |---|---|---|---|---|---|---|
-| 2026-03-26 | `a2c1f1d` | `confirm` | 8 receiver lanes | `100` VUs, `30s`, receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g` | Dashboard data: [`site-data.json`](../site/src/data/site-data.json) | Latest published `confirm` snapshot; Python / FastAPI led raw throughput in this run. |
+| 2026-05-03 | `740d25a` | `confirm`, `http-only`, `enqueue` | 7 strict-compatible receiver lanes for `confirm`; 8 receiver lanes for `http-only` and `enqueue` | `100` VUs, `30s`, receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g` | [`confirm`](../results/20260503-003926/summary.md) · [`http-only`](../results/20260503-005939/summary.md) · [`enqueue`](../results/20260503-012856/summary.md) | Latest published baseline set. `confirm` is strict-1; `http-only` and `enqueue` are fixed-envelope. |
+| 2026-03-26 | `a2c1f1d` | `confirm` | 8 receiver lanes | `100` VUs, `30s`, receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g` | Dashboard data: [`site-data.json`](../site/src/data/site-data.json) | Previous published `confirm` snapshot; Python / FastAPI led raw throughput in this run. |
 | 2026-03-12 | `7432aed` | `http-only`, `confirm`, `enqueue` | 8 receiver lanes | `100` VUs, `30s`, receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g` | [`http-only`](../results/20260312-190020/summary.md) · [`confirm`](../results/20260312-184014/summary.md) · [`enqueue`](../results/20260312-192216/summary.md) | First baseline with `spring-virtual-receiver`; matched `http-only` vs `confirm` delta available. |
+
+## Local Exploratory Runs Not Published
+
+These runs are useful notes, not dashboard baselines. The trap is obvious: recency feels like authority, but it is not authority until the run is comparable, trusted, and intentionally promoted.
+
+| Snapshot Date | Git SHA | Snapshot | Mode | Services | Controls | Result | Publication decision |
+|---|---|---|---|---|---|---|---|
+| 2026-04-24 | `7bdb712` | `20260424-202643` | `confirm` | 8 receiver lanes | Older local fixed-envelope-style run: producer pool `2`, `bids` with 3 partitions, retries `5`, 1 repeat, no explicit preset metadata | Go led raw throughput at 8561.37 req/s; Spring WebFlux led measured stack CPU efficiency at 13396.12 req/s/core. | Kept out of the published baseline because it was exploratory, single-repeat, and not paired with a compatible `http-only` snapshot. |
 
 ## How To Add The Next Snapshot
 
@@ -56,4 +67,6 @@ Current snapshot notes:
    - workload and resource budget
    - links to exact `summary.md` files
    - one short note about what changed
-5. Update the README snapshot only after the new run is the best current published baseline.
+5. Add the exact result directory ID to [`site/src/data/published-snapshots.json`](../site/src/data/published-snapshots.json).
+6. Refresh the committed dashboard data with `BENCHMARK_SITE_REFRESH_DATA=1 python3 scripts/build_benchmark_site.py`.
+7. Update the README snapshot only after the new run is the best current published baseline.
