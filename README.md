@@ -549,17 +549,29 @@ All services use optimized, multi-stage Dockerfiles:
 - **Go receiver**: 51.6 MB (Alpine + compiled binary)
 - **Rust receiver**: 132 MB (Debian Slim + compiled binary)
 - **Quarkus Native**: 271 MB (UBI Minimal + native executable)
-- **Quarkus JVM**: 387 MB (Alpine + Temurin JRE 21)
-- **Quarkus Sinker**: 582 MB (Alpine + Temurin JRE 21 + larger dependencies)
+- **Quarkus JVM**: 387 MB (Alpine + Temurin JRE 25)
+- **Quarkus Sinker**: 582 MB (Alpine + Temurin JRE 25 + larger dependencies)
 
 ## **10\. Development**
 
 ### Local Development (without Docker)
 
+The Quarkus services require JDK 25. SDKMAN users can activate the repo-pinned Temurin build from the repository root:
+
+```bash
+sdk env
+java -version
+```
+
+If you do not use SDKMAN, point `JAVA_HOME` at a JDK 25 install before running Maven. Both Quarkus Maven builds enforce JDK 25 during `validate`, so a wrong local JDK fails before compile or dev mode startup.
+
 For Quarkus services:
 ```bash
 cd services/quarkus-receiver
 ./mvnw quarkus:dev  # Hot reload enabled
+
+cd ../quarkus-sinker
+./mvnw quarkus:dev
 ```
 
 For Go service:
