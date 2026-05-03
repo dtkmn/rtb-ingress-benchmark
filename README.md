@@ -1,3 +1,7 @@
+<p>
+  <img src="site/src/assets/brand/rtb-ingress-icon.svg" alt="RTB Ingress Benchmark icon" width="72" height="72" />
+</p>
+
 # **RTB Ingress Benchmark Harness**
 
 A living benchmark harness for RTB-style ingress services across popular backend runtimes and frameworks.

@@ -26,6 +26,10 @@ function formatPercent(value, digits = 2) {
   return `${formatNumber(value, digits)}%`;
 }
 
+function clampPercent(value) {
+  return Math.max(0, Math.min(100, value));
+}
+
 function byModeOrder(mode) {
   const index = MODE_ORDER.indexOf(mode);
   return index === -1 ? MODE_ORDER.length : index;
@@ -268,6 +272,7 @@ function renderRankingTable(snapshot, currentSort) {
   const primaryKey = getPrimaryMetricKey(snapshot);
   const primaryLabel = getPrimaryMetricLabel(snapshot);
   const orderedRows = [...snapshot.rows].sort(getSorts(snapshot)[currentSort].compare);
+  const maxPrimary = Math.max(...snapshot.rows.map((row) => numericValue(row[primaryKey])), 1);
   const primaryHeader = document.querySelector("#ranking-primary-metric");
   if (primaryHeader) {
     primaryHeader.textContent = primaryLabel;
@@ -280,7 +285,12 @@ function renderRankingTable(snapshot, currentSort) {
           <td class="service-name">${row.service_label}</td>
           <td>${formatNumber(row.req_s)}</td>
           <td>${formatNumber(row.p95_ms)} ms</td>
-          <td>${formatNumber(row[primaryKey])}</td>
+          <td class="metric-cell">
+            ${formatNumber(row[primaryKey])}
+            <span class="metric-bar" aria-hidden="true">
+              <span style="--metric-width: ${clampPercent((numericValue(row[primaryKey]) / maxPrimary) * 100)}%"></span>
+            </span>
+          </td>
           <td>${formatNumber(row.mem_avg_mib)} MiB</td>
           <td>${formatNumber(row.cpu_avg_pct)}%</td>
         </tr>

@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">RTB Ingress Benchmark icon</title>
+  <desc id="desc">A lightning ingress signal entering a segmented stream ring and exiting as ranking bars.</desc>
+  <defs>
+    <linearGradient id="panel" x1="24" y1="18" x2="232" y2="238" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#161a18"/>
+      <stop offset="0.52" stop-color="#070908"/>
+      <stop offset="1" stop-color="#111713"/>
+    </linearGradient>
+    <linearGradient id="amber" x1="26" y1="133" x2="111" y2="69" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb000"/>
+      <stop offset="1" stop-color="#ffea72"/>
+    </linearGradient>
+    <linearGradient id="green" x1="186" y1="63" x2="237" y2="63" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9cff2e"/>
+      <stop offset="1" stop-color="#63d217"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="186" y1="148" x2="236" y2="148" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#20d8ff"/>
+      <stop offset="1" stop-color="#2b91c7"/>
+    </linearGradient>
+    <filter id="soft-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 1 0 0.68 0 0 0.14 0 0 0 0 0 0 0 0 0.45 0" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="240" height="240" rx="28" fill="url(#panel)"/>
+  <rect x="8.75" y="8.75" width="238.5" height="238.5" rx="27.25" fill="none" stroke="#46514b" stroke-width="1.5"/>
+  <rect x="18" y="18" width="220" height="220" rx="21" fill="none" stroke="#202823" stroke-width="1"/>
+
+  <g opacity="0.95">
+    <path d="M116 42a87 87 0 0 1 22 0l-3 22a65 65 0 0 0-16 0z" fill="#f2f4ee"/>
+    <path d="M145 45a88 88 0 0 1 22 10l-12 19a64 64 0 0 0-16-7z" fill="#d8ded7"/>
+    <path d="M174 60a89 89 0 0 1 17 16l-18 14a66 66 0 0 0-12-12z" fill="#f2f4ee"/>
+    <path d="M196 84a88 88 0 0 1 10 22l-22 4a65 65 0 0 0-7-16z" fill="#c4cac4"/>
+    <path d="M208 114a89 89 0 0 1 0 24l-22-4a66 66 0 0 0 0-17z" fill="#f2f4ee"/>
+    <path d="M203 147a88 88 0 0 1-11 22l-18-14a66 66 0 0 0 8-16z" fill="#c4cac4"/>
+    <path d="M184 178a88 88 0 0 1-18 16l-11-19a66 66 0 0 0 13-12z" fill="#f2f4ee"/>
+    <path d="M154 201a88 88 0 0 1-23 6l-1-22a66 66 0 0 0 17-5z" fill="#aeb7b0"/>
+  </g>
+
+  <g fill="none" stroke="#d8ded7" stroke-linecap="round" stroke-linejoin="round" stroke-width="8">
+    <path d="M127 128h29"/>
+    <path d="M128 128v-42"/>
+    <path d="M128 128v44"/>
+    <path d="M128 128l-30-30"/>
+    <path d="M128 128l31-31"/>
+    <circle cx="128" cy="128" r="14" fill="#0b0f0d"/>
+    <circle cx="98" cy="98" r="11" fill="#0b0f0d"/>
+    <circle cx="159" cy="97" r="11" fill="#0b0f0d"/>
+    <circle cx="128" cy="83" r="11" fill="#0b0f0d"/>
+    <circle cx="156" cy="128" r="11" fill="#0b0f0d"/>
+    <circle cx="128" cy="177" r="11" fill="#0b0f0d"/>
+  </g>
+
+  <path d="M26 139h49l-11 52 53-79H79l11-47z" fill="url(#amber)" filter="url(#soft-glow)"/>
+  <path d="M181 60h50v18h-50z" fill="url(#green)"/>
+  <path d="M181 101h50v18h-50z" fill="#f6be2d"/>
+  <path d="M181 142h50v18h-50z" fill="url(#cyan)"/>
+  <path d="M181 183h38v18h-38z" fill="#2f8fc0"/>
+</svg>
