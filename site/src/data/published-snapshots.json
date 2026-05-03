@@ -1,0 +1,13 @@
+{
+  "description": "Only snapshot IDs listed here are eligible for the published dashboard. Local results under results/ are exploratory until an ID is added here intentionally.",
+  "snapshot_ids": [
+    "20260503-003926",
+    "20260503-005939",
+    "20260503-012856",
+    "20260326-211147",
+    "20260312-192216",
+    "20260312-190020",
+    "20260312-184014",
+    "20260312-175418"
+  ]
+}

@@ -1,26 +1,22 @@
 const MODE_ORDER = ["confirm", "http-only", "enqueue"];
 
-const SORTS = {
-  req_s: {
-    label: "Sort: req/s",
-    compare: (left, right) => right.req_s - left.req_s,
-  },
-  p95: {
-    label: "Sort: p95",
-    compare: (left, right) => left.p95_ms - right.p95_ms,
-  },
-  efficiency: {
-    label: "Sort: req/s / CPU limit",
-    compare: (left, right) => right.req_per_cpu_limit - left.req_per_cpu_limit,
-  },
-  memory: {
-    label: "Sort: memory",
-    compare: (left, right) => left.mem_avg_mib - right.mem_avg_mib,
-  },
-};
+function numericValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return 0;
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
 
 function formatNumber(value, digits = 2) {
-  return Number(value).toLocaleString("en-US", {
+  if (value === null || value === undefined || value === "") {
+    return "n/a";
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return "n/a";
+  }
+  return numeric.toLocaleString("en-US", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });
@@ -28,6 +24,10 @@ function formatNumber(value, digits = 2) {
 
 function formatPercent(value, digits = 2) {
   return `${formatNumber(value, digits)}%`;
+}
+
+function clampPercent(value) {
+  return Math.max(0, Math.min(100, value));
 }
 
 function byModeOrder(mode) {
@@ -52,6 +52,44 @@ function modePill(mode, label) {
   return `<span class="mode-pill" data-mode="${mode}">${label}</span>`;
 }
 
+function isPublished(snapshot) {
+  return (snapshot.publication_state || "published") === "published";
+}
+
+function publicationLabel(snapshot) {
+  return isPublished(snapshot) ? "Published" : "Local exploratory";
+}
+
+function getPrimaryMetricKey(snapshot) {
+  return snapshot.primary_metric_key || "req_per_cpu_limit";
+}
+
+function getPrimaryMetricLabel(snapshot) {
+  return snapshot.primary_metric_label || "req/s / receiver CPU limit";
+}
+
+function getSorts(snapshot) {
+  const primaryKey = getPrimaryMetricKey(snapshot);
+  return {
+    primary: {
+      label: `Sort: ${getPrimaryMetricLabel(snapshot)}`,
+      compare: (left, right) => numericValue(right[primaryKey]) - numericValue(left[primaryKey]),
+    },
+    req_s: {
+      label: "Sort: req/s",
+      compare: (left, right) => numericValue(right.req_s) - numericValue(left.req_s),
+    },
+    p95: {
+      label: "Sort: p95",
+      compare: (left, right) => numericValue(left.p95_ms) - numericValue(right.p95_ms),
+    },
+    memory: {
+      label: "Sort: memory",
+      compare: (left, right) => numericValue(left.mem_avg_mib) - numericValue(right.mem_avg_mib),
+    },
+  };
+}
+
 async function loadSiteData() {
   const dataPath = document.body.dataset.dataPath;
   const response = await fetch(dataPath, { cache: "no-store" });
@@ -62,7 +100,8 @@ async function loadSiteData() {
 }
 
 function renderDashboard(data) {
-  const snapshots = data.snapshots;
+  const publishedSnapshots = data.snapshots.filter(isPublished);
+  const snapshots = publishedSnapshots.length ? publishedSnapshots : data.snapshots;
   const snapshotById = new Map(snapshots.map((snapshot) => [snapshot.id, snapshot]));
   const params = new URLSearchParams(window.location.search);
   const requestedSnapshot = snapshotById.get(params.get("snapshot"));
@@ -80,8 +119,11 @@ function renderDashboard(data) {
   }
 
   let currentSort = params.get("sort");
-  if (!SORTS[currentSort]) {
-    currentSort = "req_s";
+  if (currentSort === "efficiency") {
+    currentSort = "primary";
+  }
+  if (!getSorts(activeSnapshot)[currentSort]) {
+    currentSort = "primary";
   }
 
   const snapshotsForMode = snapshots
@@ -89,14 +131,14 @@ function renderDashboard(data) {
     .sort((left, right) => right.timestamp.localeCompare(left.timestamp));
 
   renderContextPanel(activeSnapshot);
-  renderModeTabs(data, activeSnapshot, currentSort);
+  renderModeTabs(data, snapshots, activeSnapshot, currentSort);
   renderSnapshotSelect(activeSnapshot, snapshotsForMode, currentSort);
   renderCards(activeSnapshot.cards);
   renderSortControls(activeSnapshot, currentSort);
-  renderRankingTable(activeSnapshot.rows, currentSort);
+  renderRankingTable(activeSnapshot, currentSort);
   renderInterpretation(activeSnapshot);
   renderDeltaPanel(activeSnapshot);
-  renderRecentSnapshots(snapshots.slice(0, 6));
+  renderRecentSnapshots(snapshots.filter(isPublished).slice(0, 6));
 }
 
 function renderContextPanel(snapshot) {
@@ -109,6 +151,10 @@ function renderContextPanel(snapshot) {
     <div class="context-item">
       <strong>Mode</strong>
       <span>${modePill(snapshot.mode, snapshot.mode_label)}</span>
+    </div>
+    <div class="context-item">
+      <strong>Status</strong>
+      <span>${publicationLabel(snapshot)}</span>
     </div>
     <div class="context-item">
       <strong>Git SHA</strong>
@@ -129,15 +175,15 @@ function renderContextPanel(snapshot) {
   `;
 }
 
-function renderModeTabs(data, activeSnapshot, currentSort) {
+function renderModeTabs(data, snapshots, activeSnapshot, currentSort) {
   const container = document.getElementById("mode-tabs");
-  const availableModes = [...new Set(data.snapshots.map((snapshot) => snapshot.mode))].sort(
+  const availableModes = [...new Set(snapshots.map((snapshot) => snapshot.mode))].sort(
     (left, right) => byModeOrder(left) - byModeOrder(right)
   );
   container.innerHTML = availableModes
     .map((mode) => {
       const latestId = data.latest_by_mode[mode];
-      const latestSnapshot = data.snapshots.find((snapshot) => snapshot.id === latestId);
+      const latestSnapshot = snapshots.find((snapshot) => snapshot.id === latestId);
       const active = mode === activeSnapshot.mode ? "active" : "";
       const title = latestSnapshot ? `${latestSnapshot.mode_label} · ${latestSnapshot.date_label}` : mode;
       return `<button class="mode-tab ${active}" data-mode="${mode}" title="${title}">${
@@ -155,7 +201,7 @@ function renderModeTabs(data, activeSnapshot, currentSort) {
       if (latestId) {
         params.set("snapshot", latestId);
       }
-      if (currentSort !== "req_s") {
+      if (currentSort !== "primary") {
         params.set("sort", currentSort);
       }
       window.location.search = params.toString();
@@ -179,7 +225,7 @@ function renderSnapshotSelect(activeSnapshot, snapshotsForMode, currentSort) {
     const params = new URLSearchParams();
     params.set("snapshot", select.value);
     params.set("mode", activeSnapshot.mode);
-    if (currentSort !== "req_s") {
+    if (currentSort !== "primary") {
       params.set("sort", currentSort);
     }
     window.location.search = params.toString();
@@ -203,7 +249,7 @@ function renderCards(cards) {
 
 function renderSortControls(snapshot, currentSort) {
   const controls = document.getElementById("sort-controls");
-  controls.innerHTML = Object.entries(SORTS)
+  controls.innerHTML = Object.entries(getSorts(snapshot))
     .map(([key, sort]) => {
       const active = key === currentSort ? "active" : "";
       return `<button class="sort-chip ${active}" data-sort="${key}">${sort.label}</button>`;
@@ -221,9 +267,16 @@ function renderSortControls(snapshot, currentSort) {
   });
 }
 
-function renderRankingTable(rows, currentSort) {
+function renderRankingTable(snapshot, currentSort) {
   const tableBody = document.querySelector("#ranking-table tbody");
-  const orderedRows = [...rows].sort(SORTS[currentSort].compare);
+  const primaryKey = getPrimaryMetricKey(snapshot);
+  const primaryLabel = getPrimaryMetricLabel(snapshot);
+  const orderedRows = [...snapshot.rows].sort(getSorts(snapshot)[currentSort].compare);
+  const maxPrimary = Math.max(...snapshot.rows.map((row) => numericValue(row[primaryKey])), 1);
+  const primaryHeader = document.querySelector("#ranking-primary-metric");
+  if (primaryHeader) {
+    primaryHeader.textContent = primaryLabel;
+  }
   tableBody.innerHTML = orderedRows
     .map(
       (row, index) => `
@@ -232,7 +285,12 @@ function renderRankingTable(rows, currentSort) {
           <td class="service-name">${row.service_label}</td>
           <td>${formatNumber(row.req_s)}</td>
           <td>${formatNumber(row.p95_ms)} ms</td>
-          <td>${formatNumber(row.req_per_cpu_limit)}</td>
+          <td class="metric-cell">
+            ${formatNumber(row[primaryKey])}
+            <span class="metric-bar" aria-hidden="true">
+              <span style="--metric-width: ${clampPercent((numericValue(row[primaryKey]) / maxPrimary) * 100)}%"></span>
+            </span>
+          </td>
           <td>${formatNumber(row.mem_avg_mib)} MiB</td>
           <td>${formatNumber(row.cpu_avg_pct)}%</td>
         </tr>
@@ -246,7 +304,11 @@ function renderInterpretation(snapshot) {
   notes.innerHTML = snapshot.interpretation.map((line) => `<li>${line}</li>`).join("");
   const miniMeta = document.getElementById("snapshot-meta");
   miniMeta.innerHTML = `
+    <div><strong>Top primary metric:</strong> ${snapshot.top_primary_service_label} (${formatNumber(
+      snapshot.top_primary_metric
+    )} ${getPrimaryMetricLabel(snapshot)})</div>
     <div><strong>Top throughput:</strong> ${snapshot.top_service_label} (${formatNumber(snapshot.top_req_s)} req/s)</div>
+    <div><strong>Status:</strong> ${publicationLabel(snapshot)}</div>
     <div><strong>Services:</strong> ${snapshot.services_count} receiver lanes</div>
     <div><strong>Commit:</strong> <a href="${snapshot.commit_url}" target="_blank" rel="noreferrer">${snapshot.git_sha_short}</a></div>
   `;
@@ -348,7 +410,9 @@ function renderRecentSnapshots(snapshots) {
 }
 
 function renderHistory(data) {
-  const snapshots = [...data.snapshots].sort((left, right) => right.timestamp.localeCompare(left.timestamp));
+  const snapshots = [...data.snapshots]
+    .filter(isPublished)
+    .sort((left, right) => right.timestamp.localeCompare(left.timestamp));
   document.getElementById("history-context").innerHTML = `
     <div class="context-item">
       <strong>Snapshots</strong>

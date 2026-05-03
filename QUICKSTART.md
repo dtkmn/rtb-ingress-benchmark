@@ -4,6 +4,7 @@
 - Docker Desktop running
 - 8GB+ RAM available
 - Ports available: 8070-8077, 9090, 9092, 3000, 5432, 9000
+- JDK 25 for local Quarkus development outside Docker (`sdk env` from the repo root if you use SDKMAN)
 
 ## Testing with Docker Compose
 

@@ -1,35 +1,54 @@
+<p>
+  <img src="site/src/assets/brand/rtb-ingress-icon.svg" alt="RTB Ingress Benchmark icon" width="72" height="72" />
+</p>
+
 # **RTB Ingress Benchmark Harness**
 
 A living benchmark harness for RTB-style ingress services across popular backend runtimes and frameworks.
 
-## **Latest Benchmark Tops**
+## **Latest Published Benchmark Tops**
 
 This repo is maintained as a living benchmark harness, not a permanent winner board.
 Published snapshots are curated on meaningful changes, not emitted on a fixed schedule just to keep the dashboard fresh.
 
 The source of truth for the published dashboard is `site/src/data/site-data.json`.
+Local runs under `results/` are scratch data until their snapshot IDs are explicitly promoted through `site/src/data/published-snapshots.json`.
 
-| Mode | Snapshot | Git SHA | Primary metric | Current top result |
-|------|----------|---------|----------------|--------------------|
-| `confirm` | 2026-05-03 (`20260503-003926`, local strict-1) | `740d25a` | `req/s / measured stack avg core` | Spring WebFlux, 15015.54 req/s/core |
-| `http-only` | 2026-05-03 (`20260503-005939`, local fixed-envelope) | `740d25a` | `req/s / measured stack avg core` | Rust / Actix, 38480.29 req/s/core |
-| `enqueue` | 2026-05-03 (`20260503-012856`, local fixed-envelope) | `740d25a` | `req/s / measured stack avg core` | Rust / Actix, 16677.20 req/s/core |
+| Mode | Published snapshot | Git SHA | Primary metric | Current published top result |
+|------|--------------------|---------|----------------|------------------------------|
+| `confirm` | 2026-05-03 (`20260503-003926`, strict-1) | `740d25a` | `req/s / measured stack avg core` | Spring WebFlux, 15015.54 req/s/core |
+| `http-only` | 2026-05-03 (`20260503-005939`, fixed-envelope) | `740d25a` | `req/s / measured stack avg core` | Rust / Actix, 38480.29 req/s/core |
+| `enqueue` | 2026-05-03 (`20260503-012856`, fixed-envelope) | `740d25a` | `req/s / measured stack avg core` | Rust / Actix, 16677.20 req/s/core |
 
-Current local snapshot controls:
+Latest published `confirm` ranking (`20260503-003926`, strict-1):
+
+| Rank | Service | `req/s / measured stack avg core` | Raw `req/s avg` | p95 avg |
+|-----:|---------|----------------------------------:|----------------:|--------:|
+| 1 | Spring WebFlux | 15015.54 | 7306.14 | 18.93 ms |
+| 2 | Rust / Actix | 13937.31 | 6815.80 | 25.42 ms |
+| 3 | Quarkus JVM | 6486.70 | 6131.49 | 28.11 ms |
+| 4 | Python / FastAPI | 5960.38 | 6325.54 | 27.02 ms |
+| 5 | Go / Gin | 5774.84 | 5731.93 | 31.86 ms |
+| 6 | Quarkus Native | 5744.32 | 5385.69 | 30.64 ms |
+| 7 | Node / Fastify | 1946.11 | 3348.29 | 51.93 ms |
+
+Published snapshot controls:
 
 - **Workload:** `100` VUs for `30s` with `10s` warmup
 - **Budget:** receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g`
 - **Strict `confirm`:** `BENCHMARK_PRESET=strict-1`, one HTTP lane, one producer lane, one Kafka partition, topic `bids-strict-1`, retries `0`; excludes `spring-virtual-receiver`
 - **`http-only` and `enqueue`:** `BENCHMARK_PRESET=custom`, `BENCHMARK_FAIRNESS_PROFILE=fixed-envelope`, derived parallelism `2`, producer pool `2`, topic `bids` with `3` partitions; includes all 8 receiver lanes
 - **Kafka tuning:** `linger=10ms`, `batch=131072`, `request_timeout=5000ms`, `retry_backoff=100ms`; `confirm` uses `acks=1`, `enqueue` uses `acks=0`
+- **Promotion gate:** a local result is not dashboard-published unless its ID is listed in `site/src/data/published-snapshots.json`
 
-Current takeaways from the benchmark snapshots:
+Current published takeaways:
 
-- In the latest strict-1 `confirm` run, Spring WebFlux led the primary CPU-normalized result at 15015.54 req/s/core and also led raw throughput at 7306.14 req/s.
-- Rust ranked second on CPU-normalized throughput at 13937.31 req/s/core and led memory-normalized throughput at 11844.60 req/s/GiB.
-- In the latest fixed-envelope `http-only` run, Rust led both CPU-normalized capacity at 38480.29 req/s/core and raw throughput at 26227.59 req/s.
-- In the latest fixed-envelope `enqueue` run, Rust led CPU-normalized capacity at 16677.20 req/s/core; Quarkus JVM led raw throughput at 24915.85 req/s.
-- The strict `confirm` row and fixed-envelope `http-only`/`enqueue` rows answer different topology questions, so do not collapse them into one universal winner.
+- In the latest published strict-1 `confirm` run, Spring WebFlux led the primary CPU-normalized result at 15015.54 req/s/core and also led raw throughput at 7306.14 req/s.
+- Rust ranked second on CPU-normalized `confirm` throughput at 13937.31 req/s/core and led `confirm` memory-normalized throughput at 11844.60 req/s/GiB.
+- In the latest published fixed-envelope `http-only` run, Rust led both CPU-normalized capacity at 38480.29 req/s/core and raw throughput at 26227.59 req/s.
+- In the latest published fixed-envelope `enqueue` run, Rust led CPU-normalized capacity at 16677.20 req/s/core; Quarkus JVM led raw throughput at 24915.85 req/s.
+- The May 3 published set covers all three modes, but the strict `confirm` row and fixed-envelope `http-only`/`enqueue` rows answer different topology questions, so do not collapse them into one universal winner.
+- The Apr 24 local `confirm` run (`20260424-202643`) remains exploratory evidence, not the published baseline.
 - Cross-mode rank changes were material once Kafka confirmation stayed in the request path; the published dashboard makes those mode-specific rankings much easier to compare cleanly.
 - Raw `req/s avg` is not the primary capacity-planning result. Treat `req/s / measured stack avg core` as the main efficiency ranking, then use raw throughput, memory efficiency, latency, and error rates as guardrails.
 
@@ -39,7 +58,7 @@ Publishing policy:
 - Promote a run only when there is a meaningful trigger such as a major runtime/framework upgrade, a request-path change, a Kafka/client tuning change, a new service, or a benchmark-method change.
 - Update the published snapshot only when the result is trusted, comparable enough to interpret, and worth calling out.
 
-For the published snapshot data, see the GitHub Pages dashboard and the committed dashboard data snapshot in `site/src/data/site-data.json`. For the rules behind these runs, see [docs/BENCHMARK_CONTRACT.md](docs/BENCHMARK_CONTRACT.md). For the timeline and publication policy, see [docs/BENCHMARK_HISTORY.md](docs/BENCHMARK_HISTORY.md).
+For the published snapshot data, see the GitHub Pages dashboard and the committed dashboard data snapshot in `site/src/data/site-data.json`. For the rules behind these runs, see [docs/BENCHMARK_CONTRACT.md](docs/BENCHMARK_CONTRACT.md). For the timeline, local exploratory notes, and publication policy, see [docs/BENCHMARK_HISTORY.md](docs/BENCHMARK_HISTORY.md).
 
 ## **1\. Business Case**
 
@@ -507,14 +526,20 @@ Read the result tables in this order:
 
 To keep the README readable, only the latest verified baseline snapshot should live near the top of this file. Put monthly updates and historical snapshots in [docs/BENCHMARK_HISTORY.md](docs/BENCHMARK_HISTORY.md).
 
-The repo also ships a static GitHub Pages dashboard under `site/`. Refresh it locally after a trusted benchmark run with:
+The repo also ships a static GitHub Pages dashboard under `site/`. Build the dashboard from the committed published data with:
 
 ```bash
 python3 scripts/build_benchmark_site.py
 python3 -m http.server -d site/dist 8000
 ```
 
-The generated Pages artifact lives in `site/dist/`, while the committed dashboard data snapshot is `site/src/data/site-data.json`.
+To publish a trusted result, first add its exact result directory ID to `site/src/data/published-snapshots.json`, then refresh the committed data snapshot:
+
+```bash
+BENCHMARK_SITE_REFRESH_DATA=1 python3 scripts/build_benchmark_site.py
+```
+
+The generator intentionally ignores unlisted local result directories when refreshing published data. The generated Pages artifact lives in `site/dist/`, while the committed dashboard data snapshot is `site/src/data/site-data.json`.
 
 ## **9\. Docker Image Optimization**
 
@@ -528,17 +553,29 @@ All services use optimized, multi-stage Dockerfiles:
 - **Go receiver**: 51.6 MB (Alpine + compiled binary)
 - **Rust receiver**: 132 MB (Debian Slim + compiled binary)
 - **Quarkus Native**: 271 MB (UBI Minimal + native executable)
-- **Quarkus JVM**: 387 MB (Alpine + Temurin JRE 21)
-- **Quarkus Sinker**: 582 MB (Alpine + Temurin JRE 21 + larger dependencies)
+- **Quarkus JVM**: 387 MB (Alpine + Temurin JRE 25)
+- **Quarkus Sinker**: 582 MB (Alpine + Temurin JRE 25 + larger dependencies)
 
 ## **10\. Development**
 
 ### Local Development (without Docker)
 
+The Quarkus services require JDK 25. SDKMAN users can activate the repo-pinned Temurin build from the repository root:
+
+```bash
+sdk env
+java -version
+```
+
+If you do not use SDKMAN, point `JAVA_HOME` at a JDK 25 install before running Maven. Both Quarkus Maven builds enforce JDK 25 during `validate`, so a wrong local JDK fails before compile or dev mode startup.
+
 For Quarkus services:
 ```bash
 cd services/quarkus-receiver
 ./mvnw quarkus:dev  # Hot reload enabled
+
+cd ../quarkus-sinker
+./mvnw quarkus:dev
 ```
 
 For Go service:

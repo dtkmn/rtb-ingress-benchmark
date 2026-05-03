@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
+  <title id="title">RTB Ingress Benchmark social preview</title>
+  <desc id="desc">A cinematic dark benchmark preview with the RTB Ingress Benchmark icon and current published benchmark modes.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="640" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#050706"/>
+      <stop offset="0.55" stop-color="#0a0d0b"/>
+      <stop offset="1" stop-color="#111611"/>
+    </linearGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="1280" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb000"/>
+      <stop offset="0.5" stop-color="#ffdd55"/>
+      <stop offset="1" stop-color="#9cff2e"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0v40" fill="none" stroke="#1a221d" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect width="1280" height="640" fill="url(#grid)" opacity="0.75"/>
+  <path d="M0 120h1280M0 500h1280" stroke="#2b352e" stroke-width="1"/>
+  <path d="M82 82h1116v476H82z" fill="#0d110f" opacity="0.82" stroke="#3f4b44" stroke-width="2"/>
+  <path d="M82 82h1116" stroke="url(#amber)" stroke-width="4"/>
+
+  <image href="rtb-ingress-icon.svg" x="118" y="174" width="292" height="292"/>
+
+  <text x="456" y="226" fill="#f7f7ee" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="64" font-weight="800">RTB Ingress</text>
+  <text x="456" y="296" fill="#f7f7ee" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="64" font-weight="800">Benchmark</text>
+  <text x="459" y="356" fill="#aeb8ae" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="25">Published May 3 snapshots across confirm, http-only, and enqueue modes.</text>
+
+  <g font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="22" font-weight="700">
+    <rect x="460" y="412" width="195" height="58" rx="6" fill="#151b17" stroke="#ffb000"/>
+    <text x="486" y="448" fill="#ffcc35">CONFIRM</text>
+    <rect x="676" y="412" width="210" height="58" rx="6" fill="#151b17" stroke="#9cff2e"/>
+    <text x="702" y="448" fill="#9cff2e">HTTP-ONLY</text>
+    <rect x="907" y="412" width="190" height="58" rx="6" fill="#151b17" stroke="#21d7ff"/>
+    <text x="933" y="448" fill="#21d7ff">ENQUEUE</text>
+  </g>
+</svg>
