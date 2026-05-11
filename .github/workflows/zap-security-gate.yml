@@ -1,0 +1,72 @@
+name: ZAP Wiring Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: Smoke target reachable from ZAP; default readiness target proves wiring, not bid-request API coverage.
+        required: true
+        default: http://app:8080/q/health/ready
+        type: string
+      baseline_mode:
+        description: Use seed first; enforce only locks the selected smoke target baseline.
+        required: true
+        default: seed
+        type: choice
+        options:
+          - seed
+          - enforce
+      fail_on_new_findings:
+        description: Fail when net-new findings exceed the threshold.
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: read
+
+jobs:
+  zap-security-gate:
+    name: Run MCP ZAP wiring smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out benchmark repo
+        uses: actions/checkout@v5
+
+      - name: Run MCP-backed ZAP wiring smoke
+        id: zap_gate
+        uses: dtkmn/mcp-zap-server/.github/actions/zap-security-gate@12fb9b78a5021c9cf23cef1309687b5a5f014f96
+        with:
+          target-url: ${{ inputs.target_url }}
+          baseline-file: .zap/baselines/quarkus-receiver-wiring-smoke.json
+          baseline-mode: ${{ inputs.baseline_mode }}
+          output-dir: .zap-artifacts
+          mcp-server-image: ghcr.io/dtkmn/mcp-zap-server:sha-12fb9b7
+          compose-override-file: .github/zap/docker-compose.quarkus-receiver.yml
+          compose-services: app zap mcp-server
+          run-active-scan: "false"
+          fail-on-new-findings: ${{ inputs.fail_on_new_findings }}
+          max-new-findings: "0"
+          passive-timeout-seconds: "120"
+          spider-timeout-seconds: "240"
+
+      - name: Upload ZAP gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: zap-wiring-smoke
+          path: .zap-artifacts/**
+          if-no-files-found: warn
+
+      - name: Print gate result
+        if: always()
+        run: |
+          echo "gate-passed=${{ steps.zap_gate.outputs.gate-passed }}"
+          echo "baseline-used=${{ steps.zap_gate.outputs.baseline-used }}"
+          echo "new-findings=${{ steps.zap_gate.outputs.new-findings }}"
+          echo "summary-path=${{ steps.zap_gate.outputs.summary-path }}"
+          echo "report-local-path=${{ steps.zap_gate.outputs.report-local-path }}"
