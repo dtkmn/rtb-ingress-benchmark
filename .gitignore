@@ -39,6 +39,7 @@ nb-configuration.xml
 # Local environment
 .env
 results/
+zap-artifacts/
 site/dist/
 node_modules/
 __pycache__/
