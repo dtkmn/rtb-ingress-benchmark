@@ -1,0 +1,43 @@
+{
+  "contract_version": "ci_gate_findings_snapshot/v1",
+  "finding_count": 4,
+  "findings": [
+    {
+      "alert_name": "Content Security Policy (CSP) Header Not Set",
+      "confidence": "High",
+      "fingerprint": "sha256:95417cbaf2f10d58e8b5ddfd4b1e32962182f7c80120af623db6f9716dbb5fd2",
+      "param": "<none>",
+      "plugin_id": "10038",
+      "risk": "Medium",
+      "url": "http://app:8080/"
+    },
+    {
+      "alert_name": "Content Security Policy (CSP) Header Not Set",
+      "confidence": "High",
+      "fingerprint": "sha256:9f8c3039c24c45f5c59931b786412868944b5915a04326aa0e19d70fbca7eb25",
+      "param": "<none>",
+      "plugin_id": "10038",
+      "risk": "Medium",
+      "url": "http://app:8080/robots.txt"
+    },
+    {
+      "alert_name": "Content Security Policy (CSP) Header Not Set",
+      "confidence": "High",
+      "fingerprint": "sha256:db90b58b73bdad8aba4e01a80ea2bf7c926bb5d62a33c8307029f6bef928a2e1",
+      "param": "<none>",
+      "plugin_id": "10038",
+      "risk": "Medium",
+      "url": "http://app:8080/sitemap.xml"
+    },
+    {
+      "alert_name": "X-Content-Type-Options Header Missing",
+      "confidence": "Medium",
+      "fingerprint": "sha256:a5275b9c0d3a427af5471551903095341893ea21dce6685d671db9e09d3375ea",
+      "param": "x-content-type-options",
+      "plugin_id": "10021",
+      "risk": "Low",
+      "url": "http://app:8080/bid-request"
+    }
+  ],
+  "target_url": "http://app:8080/"
+}
