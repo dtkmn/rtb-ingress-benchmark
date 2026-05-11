@@ -1,0 +1,70 @@
+{
+  "requests": [
+    {
+      "name": "accepted-bid-request",
+      "method": "POST",
+      "url": "http://app:8080/bid-request",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "id": "zap-seed-accepted-1",
+        "imp": [
+          {
+            "id": "imp-1",
+            "banner": {
+              "w": 300,
+              "h": 250,
+              "pos": 1
+            },
+            "bidfloor": 1.25,
+            "bidfloorcur": "USD"
+          }
+        ],
+        "site": {
+          "id": "site-zap",
+          "domain": "example.test",
+          "cat": [
+            "IAB1"
+          ]
+        },
+        "device": {
+          "ip": "192.168.10.20",
+          "ua": "MCP-ZAP-CI/1.0",
+          "os": "Linux",
+          "ifa": "seed-device-1",
+          "lmt": 0
+        },
+        "user": {
+          "id": "seed-user-1"
+        }
+      },
+      "expectedStatus": [
+        200
+      ]
+    },
+    {
+      "name": "privacy-filtered-bid-request",
+      "method": "POST",
+      "url": "http://app:8080/bid-request",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "id": "zap-seed-lmt-1",
+        "site": {
+          "id": "site-zap",
+          "domain": "example.test"
+        },
+        "device": {
+          "ip": "192.168.10.21",
+          "ua": "MCP-ZAP-CI/1.0",
+          "lmt": 1
+        }
+      },
+      "expectedStatus": [
+        204
+      ]
+    }
+  ]
+}

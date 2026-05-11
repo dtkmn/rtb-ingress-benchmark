@@ -1,15 +1,15 @@
-name: ZAP Wiring Smoke
+name: ZAP Receiver Seed Proof
 
 on:
   workflow_dispatch:
     inputs:
       target_url:
-        description: Smoke target reachable from ZAP; default readiness target proves wiring, not bid-request API coverage.
+        description: Base target reachable from ZAP; seed requests drive POST /bid-request coverage.
         required: true
-        default: http://app:8080/q/health/ready
+        default: http://app:8080
         type: string
       baseline_mode:
-        description: Use seed first; enforce only locks the selected smoke target baseline.
+        description: Use seed first; enforce only after reviewing the seeded receiver baseline.
         required: true
         default: seed
         type: choice
@@ -30,22 +30,23 @@ permissions:
 
 jobs:
   zap-security-gate:
-    name: Run MCP ZAP wiring smoke
+    name: Run MCP ZAP receiver seed proof
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - name: Check out benchmark repo
         uses: actions/checkout@v5
 
-      - name: Run MCP-backed ZAP wiring smoke
+      - name: Run MCP-backed ZAP receiver seed proof
         id: zap_gate
-        uses: dtkmn/mcp-zap-server/.github/actions/zap-security-gate@12fb9b78a5021c9cf23cef1309687b5a5f014f96
+        uses: dtkmn/mcp-zap-server/.github/actions/zap-security-gate@b86309740898fc3c67ceb26d9d53d608201e8e8a
         with:
           target-url: ${{ inputs.target_url }}
-          baseline-file: .zap/baselines/quarkus-receiver-wiring-smoke.json
+          baseline-file: .zap/baselines/quarkus-receiver-bid-request-seed.json
           baseline-mode: ${{ inputs.baseline_mode }}
+          seed-requests-file: .zap/seed-requests/quarkus-receiver-bid-request.json
           output-dir: zap-artifacts
-          mcp-server-image: ghcr.io/dtkmn/mcp-zap-server:sha-12fb9b7
+          mcp-server-image: ghcr.io/dtkmn/mcp-zap-server@sha256:fbf5af023ad3c72655c608383f4c892b31726128fce427b38a48f9492ff00382
           compose-override-file: .github/zap/docker-compose.quarkus-receiver.yml
           compose-services: app zap mcp-server
           run-active-scan: "false"
@@ -58,7 +59,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: zap-wiring-smoke
+          name: zap-receiver-seed-proof
           path: zap-artifacts/**
           if-no-files-found: warn
 
