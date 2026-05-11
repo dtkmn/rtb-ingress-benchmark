@@ -44,7 +44,7 @@ jobs:
           target-url: ${{ inputs.target_url }}
           baseline-file: .zap/baselines/quarkus-receiver-wiring-smoke.json
           baseline-mode: ${{ inputs.baseline_mode }}
-          output-dir: .zap-artifacts
+          output-dir: zap-artifacts
           mcp-server-image: ghcr.io/dtkmn/mcp-zap-server:sha-12fb9b7
           compose-override-file: .github/zap/docker-compose.quarkus-receiver.yml
           compose-services: app zap mcp-server
@@ -59,7 +59,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: zap-wiring-smoke
-          path: .zap-artifacts/**
+          path: zap-artifacts/**
           if-no-files-found: warn
 
       - name: Print gate result

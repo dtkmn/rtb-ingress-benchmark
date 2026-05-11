@@ -16,14 +16,14 @@ The first run is intentionally non-blocking:
 - `fail_on_new_findings`: `false`
 - `run-active-scan`: `false`
 
-Use this first mode to prove the integration, inspect `.zap-artifacts/current-findings.json`, and decide whether the target is the right signal for a benchmark repo.
+Use this first mode to prove the integration, inspect the uploaded `zap-wiring-smoke` artifact, and decide whether the target is the right signal for a benchmark repo.
 
 ## Moving To Enforced Smoke
 
 After the first reviewed run:
 
 1. Download the `zap-wiring-smoke` artifact from the workflow run.
-2. Commit the reviewed `current-findings.json` as `.zap/baselines/quarkus-receiver-wiring-smoke.json`.
+2. Commit the reviewed `zap-artifacts/current-findings.json` as `.zap/baselines/quarkus-receiver-wiring-smoke.json`.
 3. Run the workflow with:
    - `baseline_mode`: `enforce`
    - `fail_on_new_findings`: `true`
