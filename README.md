@@ -58,7 +58,7 @@ Publishing policy:
 - Promote a run only when there is a meaningful trigger such as a major runtime/framework upgrade, a request-path change, a Kafka/client tuning change, a new service, or a benchmark-method change.
 - Update the published snapshot only when the result is trusted, comparable enough to interpret, and worth calling out.
 
-For the published snapshot data, see the GitHub Pages dashboard and the committed dashboard data snapshot in `site/src/data/site-data.json`. For the rules behind these runs, see [docs/BENCHMARK_CONTRACT.md](docs/BENCHMARK_CONTRACT.md). For the timeline, local exploratory notes, and publication policy, see [docs/BENCHMARK_HISTORY.md](docs/BENCHMARK_HISTORY.md).
+For the published snapshot data, see the GitHub Pages dashboard and the committed dashboard data snapshot in `site/src/data/site-data.json`. For the rules behind these runs, see [docs/BENCHMARK_CONTRACT.md](docs/BENCHMARK_CONTRACT.md). For the timeline, local exploratory notes, and publication policy, see [docs/BENCHMARK_HISTORY.md](docs/BENCHMARK_HISTORY.md). For the manual MCP-backed ZAP wiring smoke pilot, see [docs/MCP_ZAP_SECURITY_GATE.md](docs/MCP_ZAP_SECURITY_GATE.md).
 
 ## **1\. Business Case**
 
