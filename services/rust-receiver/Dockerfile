@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y build-essential librdkafka-dev pkg-conf
 WORKDIR /usr/src/app
 COPY . .
 
-# Build the application in release mode
-RUN cargo build --release
+# Build the application in release mode using the committed application lockfile.
+RUN cargo build --release --locked
 
 # --- Stage 2: Create the final, smaller image ---
 FROM debian:bullseye-slim
