@@ -384,6 +384,8 @@ The benchmark contract lives in [docs/BENCHMARK_CONTRACT.md](docs/BENCHMARK_CONT
 
 That makes the out-of-the-box run compare HTTP request handling plus Kafka delivery confirmation with one HTTP execution lane, one producer lane, one Kafka partition, and no filtered traffic. The strict preset uses only lanes that can satisfy that topology cleanly and defaults to the isolated Kafka topic `bids-strict-1`.
 
+Runtime and framework bumps are triggers for fresh measurements, not automatic leaderboard updates. The runner records git dirty state and the Quarkus platform version; do not promote a snapshot unless it came from a clean worktree and the result is material enough to replace the current published baseline.
+
 For framework-only cost, run `BENCHMARK_PRESET=custom BENCHMARK_DELIVERY_MODE=http-only`. That mode skips Kafka startup and measures HTTP parsing, validation, filtering, and response handling only.
 
 ## **8\. Load Testing**
@@ -602,7 +604,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 2
 For Spring Boot service:
 ```bash
 cd services/spring-receiver
-mvn spring-boot:run
+./mvnw spring-boot:run
 ```
 
 For Node service:

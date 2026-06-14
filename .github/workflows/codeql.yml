@@ -81,11 +81,11 @@ jobs:
       - name: Build Java services for CodeQL
         if: matrix.language == 'java-kotlin'
         run: |
-          chmod +x services/quarkus-receiver/mvnw services/quarkus-sinker/mvnw
+          chmod +x services/quarkus-receiver/mvnw services/quarkus-sinker/mvnw services/spring-receiver/mvnw services/spring-virtual-receiver/mvnw
           ./services/quarkus-receiver/mvnw -B -f services/quarkus-receiver/pom.xml -DskipTests compile
           ./services/quarkus-sinker/mvnw -B -f services/quarkus-sinker/pom.xml -DskipTests compile
-          mvn -B -f services/spring-receiver/pom.xml -DskipTests compile
-          mvn -B -f services/spring-virtual-receiver/pom.xml -DskipTests compile
+          ./services/spring-receiver/mvnw -B -f services/spring-receiver/pom.xml -DskipTests compile
+          ./services/spring-virtual-receiver/mvnw -B -f services/spring-virtual-receiver/pom.xml -DskipTests compile
 
       - name: Build Go service for CodeQL
         if: matrix.language == 'go'
