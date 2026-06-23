@@ -11,7 +11,7 @@ services:
   # Kafka in KRaft mode (no ZooKeeper needed!)
   kafka:
     <<: *benchmark-kafka
-    image: confluentinc/cp-kafka:8.2.1
+    image: confluentinc/cp-kafka:8.3.0
     ports:
       - "9092:9092"
     environment:
