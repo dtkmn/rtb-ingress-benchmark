@@ -39,7 +39,7 @@ jobs:
 
       - name: Run MCP-backed ZAP receiver seed proof
         id: zap_gate
-        uses: dtkmn/mcp-zap-server/.github/actions/zap-security-gate@b86309740898fc3c67ceb26d9d53d608201e8e8a
+        uses: dtkmn/mcp-zap-server/.github/actions/zap-security-gate@9306e2ecf74b118e77862155a830284130f6e7ad
         with:
           target-url: ${{ inputs.target_url }}
           baseline-file: .zap/baselines/quarkus-receiver-bid-request-seed.json
