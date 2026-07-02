@@ -1,0 +1,82 @@
+# Supply-chain audit: checks known CVEs in dependencies for the lightweight
+# ecosystems. Maven/Java OWASP Dependency-Check is intentionally excluded for
+# now because anonymous NVD updates are too slow/flaky for PR gating.
+# This complements CodeQL (which audits your own code) and Dependabot (which
+# opens update PRs). These tools audit the *transitive dependency graph* for
+# published advisories, giving immediate blocking feedback on PRs.
+
+name: Supply Chain Audit
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - 'services/**/package.json'
+      - 'services/**/package-lock.json'
+      - 'services/**/requirements*.txt'
+      - 'services/**/go.mod'
+      - 'services/**/go.sum'
+      - 'services/**/Cargo.toml'
+      - 'services/**/Cargo.lock'
+  schedule:
+    - cron: "0 5 * * 1"   # Monday 05:00 UTC — complements Dependabot's weekly sweep
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Lightweight supply-chain audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      # Keep the quick checks sequential so the first real failure stops the job.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: services/node-receiver/package-lock.json
+
+      - name: Install dependencies
+        working-directory: services/node-receiver
+        run: npm ci --ignore-scripts
+
+      - name: npm audit (high+)
+        working-directory: services/node-receiver
+        # "high" = high + critical; remove --audit-level to catch moderate too
+        run: npm audit --audit-level=high
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: services/go-receiver/go.mod
+          cache-dependency-path: services/go-receiver/go.sum
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: govulncheck
+        working-directory: services/go-receiver
+        run: govulncheck ./...
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pip-audit
+        # pip-audit is the PyPA-blessed tool; safety requires an API key since v3
+        run: pip install pip-audit --quiet
+
+      - name: pip-audit
+        working-directory: services/python-receiver
+        run: pip-audit -r requirements.txt
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked --quiet
+
+      - name: cargo audit
+        working-directory: services/rust-receiver
+        # --deny warnings turns advisories into a hard failure
+        run: cargo audit --deny warnings
