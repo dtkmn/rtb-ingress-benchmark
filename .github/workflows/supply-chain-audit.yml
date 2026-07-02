@@ -1,4 +1,6 @@
-# Supply-chain audit: checks known CVEs in dependencies across all ecosystems.
+# Supply-chain audit: checks known CVEs in dependencies for the lightweight
+# ecosystems. Maven/Java OWASP Dependency-Check is intentionally excluded for
+# now because anonymous NVD updates are too slow/flaky for PR gating.
 # This complements CodeQL (which audits your own code) and Dependabot (which
 # opens update PRs). These tools audit the *transitive dependency graph* for
 # published advisories, giving immediate blocking feedback on PRs.
@@ -9,7 +11,6 @@ on:
   pull_request:
     branches: ["main"]
     paths:
-      - 'services/**/pom.xml'
       - 'services/**/package.json'
       - 'services/**/package-lock.json'
       - 'services/**/requirements*.txt'
@@ -23,19 +24,19 @@ on:
 
 permissions:
   contents: read
-  security-events: write   # upload SARIF results to the Security tab
 
 jobs:
-  # ── Node.js ──────────────────────────────────────────────────────────────────
-  audit-node:
-    name: npm audit (node-receiver)
+  audit:
+    name: Lightweight supply-chain audit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
 
+      # Keep the quick checks sequential so the first real failure stops the job.
       - uses: actions/setup-node@v4
         with:
-          node-version-file: services/node-receiver/.nvmrc
+          node-version: 24
           cache: npm
           cache-dependency-path: services/node-receiver/package-lock.json
 
@@ -47,47 +48,6 @@ jobs:
         working-directory: services/node-receiver
         # "high" = high + critical; remove --audit-level to catch moderate too
         run: npm audit --audit-level=high
-
-  # ── Rust ─────────────────────────────────────────────────────────────────────
-  audit-rust:
-    name: cargo audit (rust-receiver)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --locked --quiet
-
-      - name: cargo audit
-        working-directory: services/rust-receiver
-        # --deny warnings turns advisories into a hard failure
-        run: cargo audit --deny warnings
-
-  # ── Python ───────────────────────────────────────────────────────────────────
-  audit-python:
-    name: pip-audit (python-receiver)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install pip-audit
-        # pip-audit is the PyPA-blessed tool; safety requires an API key since v3
-        run: pip install pip-audit --quiet
-
-      - name: pip-audit
-        working-directory: services/python-receiver
-        run: pip-audit -r requirements.txt
-
-  # ── Go ───────────────────────────────────────────────────────────────────────
-  audit-go:
-    name: govulncheck (go-receiver)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
 
       - uses: actions/setup-go@v6
         with:
@@ -101,38 +61,22 @@ jobs:
         working-directory: services/go-receiver
         run: govulncheck ./...
 
-  # ── Java / Maven ─────────────────────────────────────────────────────────────
-  audit-java:
-    name: OWASP dependency-check (${{ matrix.service }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service: [quarkus-receiver, quarkus-sinker, spring-receiver, spring-virtual-receiver]
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-python@v5
         with:
-          distribution: temurin
-          java-version-file: .java-version
-          cache: maven
+          python-version: "3.12"
 
-      - name: OWASP dependency-check
-        working-directory: services/${{ matrix.service }}
-        # --failOnCVSS 7 blocks HIGH+ (7.0–10.0); lower to 4 to also block MEDIUM
-        run: |
-          chmod +x mvnw
-          ./mvnw -B org.owasp:dependency-check-maven:check \
-            -DfailBuildOnCVSS=7 \
-            -DsuppressAutoUpdate=false \
-            -Dformat=SARIF \
-            -DoutputDirectory=target/dependency-check
+      - name: Install pip-audit
+        # pip-audit is the PyPA-blessed tool; safety requires an API key since v3
+        run: pip install pip-audit --quiet
 
-      - name: Upload SARIF to Security tab
-        if: always()
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: services/${{ matrix.service }}/target/dependency-check
-          category: owasp-${{ matrix.service }}
+      - name: pip-audit
+        working-directory: services/python-receiver
+        run: pip-audit -r requirements.txt
 
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked --quiet
+
+      - name: cargo audit
+        working-directory: services/rust-receiver
+        # --deny warnings turns advisories into a hard failure
+        run: cargo audit --deny warnings
