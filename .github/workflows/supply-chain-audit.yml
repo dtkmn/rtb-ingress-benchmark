@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # Keep the quick checks sequential so the first real failure stops the job.
       - uses: actions/setup-node@v4

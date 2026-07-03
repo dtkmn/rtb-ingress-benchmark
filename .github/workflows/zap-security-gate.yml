@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Check out benchmark repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Run MCP-backed ZAP receiver seed proof
         id: zap_gate
