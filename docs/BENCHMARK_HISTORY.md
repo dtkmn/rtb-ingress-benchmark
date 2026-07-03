@@ -18,7 +18,7 @@ This page keeps the dated benchmark trail so the README can stay focused on the 
 
 ## Current Published Snapshots
 
-- **Services:** May 3 `confirm` uses 7 strict-compatible receiver lanes; May 3 `http-only` and `enqueue` use all 8 receiver lanes
+- **Services:** July 3 `confirm` uses 7 strict-compatible receiver lanes; May 3 `http-only` and `enqueue` use all 8 receiver lanes
 - **Workload:** `100` VUs for `30s` with `10s` warmup
 - **Budget:** receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g`
 - **Dashboard source of truth:** [`site/src/data/site-data.json`](../site/src/data/site-data.json)
@@ -26,7 +26,7 @@ This page keeps the dated benchmark trail so the README can stay focused on the 
 
 | Mode | Snapshot | Git SHA | Primary result |
 |---|---|---|---|
-| `confirm` | `20260503-003926` | `740d25a` | Spring WebFlux, 15015.54 req/s/core |
+| `confirm` | `20260703-225123` | `271b287` | Rust / Actix, 25949.22 req/s/core |
 | `http-only` | `20260503-005939` | `740d25a` | Rust / Actix, 38480.29 req/s/core |
 | `enqueue` | `20260503-012856` | `740d25a` | Rust / Actix, 16677.20 req/s/core |
 
@@ -34,21 +34,22 @@ Current snapshot notes:
 
 - `http-only` is the cleanest read on framework/runtime overhead for this setup.
 - `confirm` is the better read on conservative ingress behavior with Kafka delivery confirmation in the request path.
-- The May 3 published set covers all three modes, but `confirm` uses `strict-1` while `http-only` and `enqueue` use `fixed-envelope`; do not imply one synchronized topology across all three rows.
+- The published set is intentionally mixed by mode: `confirm` is the clean July 3 strict-1 run, while `http-only` and `enqueue` remain May 3 fixed-envelope runs. Do not imply one synchronized topology across all three rows.
 - Matched mode deltas are useful only when the compared runs share compatible metadata.
 - The older published March snapshots predate explicit `benchmark_preset` and `fairness_profile` metadata; do not retrofit `strict-1` labels onto them.
 
-## Pending Refresh Decisions
+## Recent Refresh Decisions
 
 | Date | Change | Decision | Follow-through |
 |---|---|---|---|
-| 2026-07-03 | Quarkus platform now records as `3.37.1` for `quarkus-receiver` and `quarkus-sinker`, alongside benchmark publication metadata/script changes | Dirty strict-1 `confirm` reconnaissance run `20260703-122655` shows material movement: Rust leads at 19312.93 req/s/core and 7022.42 raw req/s; Spring WebFlux is third by CPU-normalized result at 11422.34 req/s/core. This is enough to justify a clean rerun, but not enough to publish because `git_dirty=true`. | Keep the May 3 published snapshots in place. After committing or separating the dependency/script/doc changes, rerun `BENCHMARK_PRESET=strict-1 scripts/run-benchmark-matrix.sh` from a clean worktree; promote only if the clean result repeats the material ranking shift and passes the publication checklist. |
+| 2026-07-03 | Quarkus platform now records as `3.37.1` for `quarkus-receiver` and `quarkus-sinker`, alongside benchmark publication metadata/script changes | Dirty strict-1 `confirm` reconnaissance run `20260703-122655` was enough to justify a clean rerun, but not enough to publish. Clean strict-1 `confirm` run `20260703-225123` passed with `git_dirty=false`; Rust led at 25949.22 req/s/core and 7282.62 raw req/s. | Promoted `20260703-225123` as the current published `confirm` snapshot. Kept May 3 `http-only` and `enqueue` snapshots in place until those modes are rerun cleanly. |
 
 ## Snapshot Log
 
 | Snapshot Date | Git SHA | Modes | Services | Workload / Budget | Result Links | Notes |
 |---|---|---|---|---|---|---|
-| 2026-05-03 | `740d25a` | `confirm`, `http-only`, `enqueue` | 7 strict-compatible receiver lanes for `confirm`; 8 receiver lanes for `http-only` and `enqueue` | `100` VUs, `30s`, receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g` | [`confirm`](../results/20260503-003926/summary.md) · [`http-only`](../results/20260503-005939/summary.md) · [`enqueue`](../results/20260503-012856/summary.md) | Latest published baseline set. `confirm` is strict-1; `http-only` and `enqueue` are fixed-envelope. |
+| 2026-07-03 | `271b287` | `confirm` | 7 strict-compatible receiver lanes | `strict-1`, `100` VUs, `30s`, receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g`, Quarkus platform `3.37.1`, `git_dirty=false` | [`confirm`](../results/20260703-225123/summary.md) | Latest published `confirm` baseline. Rust led at 25949.22 req/s/core and 7282.62 raw req/s; Spring WebFlux ranked second by CPU-normalized result; Quarkus JVM ranked third. |
+| 2026-05-03 | `740d25a` | `confirm`, `http-only`, `enqueue` | 7 strict-compatible receiver lanes for `confirm`; 8 receiver lanes for `http-only` and `enqueue` | `100` VUs, `30s`, receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g` | [`confirm`](../results/20260503-003926/summary.md) · [`http-only`](../results/20260503-005939/summary.md) · [`enqueue`](../results/20260503-012856/summary.md) | Latest published `http-only` and `enqueue` baseline set; the May 3 `confirm` snapshot is now historical. `confirm` is strict-1; `http-only` and `enqueue` are fixed-envelope. |
 | 2026-03-26 | `a2c1f1d` | `confirm` | 8 receiver lanes | `100` VUs, `30s`, receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g` | Dashboard data: [`site-data.json`](../site/src/data/site-data.json) | Previous published `confirm` snapshot; Python / FastAPI led raw throughput in this run. |
 | 2026-03-12 | `7432aed` | `http-only`, `confirm`, `enqueue` | 8 receiver lanes | `100` VUs, `30s`, receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g` | [`http-only`](../results/20260312-190020/summary.md) · [`confirm`](../results/20260312-184014/summary.md) · [`enqueue`](../results/20260312-192216/summary.md) | First baseline with `spring-virtual-receiver`; matched `http-only` vs `confirm` delta available. |
 
