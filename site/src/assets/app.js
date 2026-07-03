@@ -60,6 +60,13 @@ function publicationLabel(snapshot) {
   return isPublished(snapshot) ? "Published" : "Local exploratory";
 }
 
+function hasQuarkusLane(snapshot) {
+  return (
+    Array.isArray(snapshot.services) &&
+    snapshot.services.some((service) => service.startsWith("quarkus-"))
+  );
+}
+
 function getPrimaryMetricKey(snapshot) {
   return snapshot.primary_metric_key || "req_per_cpu_limit";
 }
@@ -160,6 +167,14 @@ function renderContextPanel(snapshot) {
       <strong>Git SHA</strong>
       <a href="${snapshot.commit_url}" target="_blank" rel="noreferrer">${snapshot.git_sha_short}</a>
     </div>
+    ${
+      snapshot.quarkus_platform_version && hasQuarkusLane(snapshot)
+        ? `<div class="context-item">
+            <strong>Quarkus lanes</strong>
+            <span>${snapshot.quarkus_platform_version}</span>
+          </div>`
+        : ""
+    }
     <div class="context-item">
       <strong>Workload</strong>
       <span>${snapshot.workload}</span>
@@ -311,6 +326,11 @@ function renderInterpretation(snapshot) {
     <div><strong>Status:</strong> ${publicationLabel(snapshot)}</div>
     <div><strong>Services:</strong> ${snapshot.services_count} receiver lanes</div>
     <div><strong>Commit:</strong> <a href="${snapshot.commit_url}" target="_blank" rel="noreferrer">${snapshot.git_sha_short}</a></div>
+    ${
+      snapshot.quarkus_platform_version && hasQuarkusLane(snapshot)
+        ? `<div><strong>Quarkus lanes:</strong> ${snapshot.quarkus_platform_version}</div>`
+        : ""
+    }
   `;
 }
 

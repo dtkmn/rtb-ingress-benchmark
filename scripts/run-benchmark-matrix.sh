@@ -16,6 +16,56 @@ lower_value() {
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
 }
 
+quarkus_platform_version_for_service() {
+  local service_dir="$1"
+  python3 - "$service_dir/pom.xml" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+pom_path = Path(sys.argv[1])
+try:
+    root = ET.parse(pom_path).getroot()
+except ET.ParseError as exc:
+    print(f"could not parse {pom_path}: {exc}", file=sys.stderr)
+    sys.exit(1)
+
+namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
+properties = root.find("m:properties", namespace)
+version = ""
+if properties is not None:
+    version = properties.findtext("m:quarkus.platform.version", default="", namespaces=namespace).strip()
+
+if not version:
+    print(f"{pom_path} is missing quarkus.platform.version", file=sys.stderr)
+    sys.exit(1)
+
+print(version)
+PY
+}
+
+git_dirty_state() {
+  if [[ -n "$(git status --porcelain)" ]]; then
+    echo "true"
+  else
+    echo "false"
+  fi
+}
+
+git_changed_files() {
+  git status --porcelain | awk '{ print substr($0, 4) }' | paste -sd, -
+}
+
+service_set_includes_quarkus() {
+  local service
+  for service in "${SERVICES[@]}"; do
+    case "$service" in
+      quarkus-receiver|quarkus-receiver-native|quarkus-sinker) return 0 ;;
+    esac
+  done
+  return 1
+}
+
 normalize_delivery_mode() {
   local candidate
   candidate="$(lower_value "${1:-confirm}")"
@@ -310,6 +360,20 @@ validate_confirm_guardrails() {
 validate_service_set
 validate_confirm_guardrails
 
+QUARKUS_RECEIVER_PLATFORM_VERSION=""
+QUARKUS_SINKER_PLATFORM_VERSION=""
+QUARKUS_PLATFORM_VERSION=""
+if service_set_includes_quarkus; then
+  QUARKUS_RECEIVER_PLATFORM_VERSION="$(quarkus_platform_version_for_service "$ROOT_DIR/services/quarkus-receiver")"
+  QUARKUS_SINKER_PLATFORM_VERSION="$(quarkus_platform_version_for_service "$ROOT_DIR/services/quarkus-sinker")"
+  if [[ "$QUARKUS_RECEIVER_PLATFORM_VERSION" != "$QUARKUS_SINKER_PLATFORM_VERSION" ]]; then
+    fail_guardrail "Quarkus platform versions must stay aligned: receiver=$QUARKUS_RECEIVER_PLATFORM_VERSION sinker=$QUARKUS_SINKER_PLATFORM_VERSION"
+  fi
+  QUARKUS_PLATFORM_VERSION="$QUARKUS_RECEIVER_PLATFORM_VERSION"
+fi
+GIT_DIRTY="$(git_dirty_state)"
+GIT_CHANGED_FILES="$(git_changed_files)"
+
 if [[ "$BENCHMARK_VALIDATE_ONLY" == "1" ]]; then
   echo "Benchmark configuration valid: preset=$BENCHMARK_PRESET fairness_profile=$BENCHMARK_FAIRNESS_PROFILE delivery_mode=$DELIVERY_MODE services=${SERVICES[*]}"
   exit 0
@@ -444,9 +508,14 @@ trap cleanup EXIT
 cat >"$OUT_DIR/run-meta.txt" <<EOF
 timestamp=$(date -Iseconds)
 git_sha=$(git rev-parse HEAD)
+git_dirty=$GIT_DIRTY
+git_changed_files=$GIT_CHANGED_FILES
 uname=$(uname -a)
 docker_version=$(docker version --format '{{.Server.Version}}')
 compose_version=$(docker compose version --short)
+quarkus_platform_version=$QUARKUS_PLATFORM_VERSION
+quarkus_receiver_platform_version=$QUARKUS_RECEIVER_PLATFORM_VERSION
+quarkus_sinker_platform_version=$QUARKUS_SINKER_PLATFORM_VERSION
 services=${SERVICES[*]}
 benchmark_preset=$BENCHMARK_PRESET
 delivery_mode=$DELIVERY_MODE

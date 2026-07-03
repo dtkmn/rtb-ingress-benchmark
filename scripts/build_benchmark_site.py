@@ -62,6 +62,56 @@ def env_flag(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in TRUTHY_VALUES
 
 
+def allow_dirty_published_snapshots() -> bool:
+    return env_flag("BENCHMARK_SITE_ALLOW_DIRTY_PUBLISH")
+
+
+def allow_legacy_unknown_dirty_snapshots() -> bool:
+    return env_flag("BENCHMARK_SITE_ALLOW_LEGACY_UNKNOWN_DIRTY")
+
+
+def published_git_dirty_state(snapshot: dict[str, object]) -> str:
+    raw_value = str(snapshot.get("git_dirty", "")).strip().lower()
+    if raw_value == "false":
+        return "clean"
+    if raw_value == "true":
+        return "dirty"
+    return "unknown"
+
+
+def require_clean_published_snapshot(snapshot: dict[str, object], source: str) -> None:
+    snapshot_id = snapshot.get("id", "unknown")
+    git_state = published_git_dirty_state(snapshot)
+    if git_state == "clean":
+        return
+    if git_state == "dirty":
+        if allow_dirty_published_snapshots():
+            return
+        raise RuntimeError(
+            f"Refusing to publish dirty benchmark snapshot {snapshot_id} from {source}; "
+            "set BENCHMARK_SITE_ALLOW_DIRTY_PUBLISH=1 only for an explicitly marked "
+            "non-baseline preview."
+        )
+    if allow_legacy_unknown_dirty_snapshots():
+        return
+    raise RuntimeError(
+        f"Refusing to publish benchmark snapshot {snapshot_id} from {source} because "
+        "git_dirty is missing or unknown; use the committed site-data fallback for "
+        "legacy baselines, or set BENCHMARK_SITE_ALLOW_LEGACY_UNKNOWN_DIRTY=1 only "
+        "when intentionally preserving a pre-metadata published result."
+    )
+
+
+def published_existing_snapshot(snapshot: dict[str, object], snapshot_id: str) -> dict[str, object]:
+    existing_snapshot = dict(snapshot)
+    existing_snapshot["publication_state"] = "published"
+    if published_git_dirty_state(existing_snapshot) == "dirty":
+        require_clean_published_snapshot(
+            existing_snapshot, f"committed site data snapshot {snapshot_id}"
+        )
+    return existing_snapshot
+
+
 def parse_timestamp(raw: str | None, fallback: str) -> datetime:
     if raw:
         try:
@@ -270,6 +320,8 @@ def build_snapshot(
         "fairness_profile": meta.get("fairness_profile", ""),
         "git_sha": meta.get("git_sha", ""),
         "git_sha_short": meta.get("git_sha", "")[:7],
+        "git_dirty": meta.get("git_dirty", ""),
+        "quarkus_platform_version": meta.get("quarkus_platform_version", ""),
         "commit_url": repo_commit_url(meta.get("git_sha", "")),
         "services_count": len(services) or len(rows),
         "services": services,
@@ -430,13 +482,23 @@ def build_published_site_data() -> dict[str, object]:
     for snapshot_id in snapshot_ids:
         summary_path = RESULTS_DIR / snapshot_id / "summary.json"
         if summary_path.exists():
-            snapshots.append(build_snapshot(summary_path))
+            snapshot = build_snapshot(summary_path)
+            if (
+                published_git_dirty_state(snapshot) == "unknown"
+                and snapshot_id in existing_snapshots
+            ):
+                snapshots.append(
+                    published_existing_snapshot(existing_snapshots[snapshot_id], snapshot_id)
+                )
+                continue
+            require_clean_published_snapshot(snapshot, str(summary_path))
+            snapshots.append(snapshot)
             rebuilt_from_results = True
             continue
         if snapshot_id in existing_snapshots:
-            existing_snapshot = dict(existing_snapshots[snapshot_id])
-            existing_snapshot["publication_state"] = "published"
-            snapshots.append(existing_snapshot)
+            snapshots.append(
+                published_existing_snapshot(existing_snapshots[snapshot_id], snapshot_id)
+            )
             continue
         missing.append(snapshot_id)
 
