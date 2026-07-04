@@ -19,7 +19,10 @@ PRIMARY_RESULT_KEY = "http_reqs_per_stack_cpu_avg_core_avg"
 RAW_THROUGHPUT_KEY = "http_reqs_rate_avg"
 MODE_COMPARISON_META_KEYS = (
     "git_sha",
+    "git_dirty",
     "uname",
+    "quarkus_platform_version",
+    "quarkus_receiver_platform_version",
     "services",
     "benchmark_preset",
     "fairness_profile",
@@ -440,6 +443,11 @@ def mode_priority(current_mode: str, candidate_mode: str) -> int | None:
 
 
 def meta_matches_for_mode_comparison(current_meta: dict[str, str], candidate_meta: dict[str, str]) -> bool:
+    if current_meta.get("git_dirty", "").strip().lower() != "false":
+        return False
+    if candidate_meta.get("git_dirty", "").strip().lower() != "false":
+        return False
+
     for key in MODE_COMPARISON_META_KEYS:
         current_value = current_meta.get(key, "")
         candidate_value = candidate_meta.get(key, "")
@@ -457,6 +465,9 @@ def build_mode_comparison(
     current_mode = meta.get("delivery_mode", "")
     current_priority_mode = current_mode or "unknown"
     current_timestamp = parse_timestamp(meta.get("timestamp"), results_dir.name)
+    if meta.get("git_dirty", "").strip().lower() != "false":
+        return None
+
     current_services = [
         str(row["service"])
         for row in sorted(rows, key=primary_result_sort_key, reverse=True)
@@ -621,15 +632,23 @@ def write_summary_markdown(
         f"- benchmark preset: {meta.get('benchmark_preset', 'unknown')}",
         f"- delivery mode: {meta.get('delivery_mode', 'unknown')}",
         f"- fairness profile: {meta.get('fairness_profile', 'unknown')}",
-        f"- kafka enabled: {kafka_enabled_label(meta)}",
-        f"- kafka acks: {meta.get('kafka_acks', 'unknown')}",
-        f"- kafka topic: {meta.get('kafka_topic', 'unknown')} ({meta.get('kafka_topic_partitions', 'unknown')} partitions, rf {meta.get('kafka_topic_replication_factor', 'unknown')}, min ISR {meta.get('kafka_topic_min_isr', 'unknown')})",
-        f"- kafka producer tuning: linger {meta.get('kafka_linger_ms', 'unknown')} ms, batch {meta.get('kafka_batch_bytes', 'unknown')} bytes, request timeout {meta.get('kafka_request_timeout_ms', 'unknown')} ms, retry backoff {meta.get('kafka_retry_backoff_ms', 'unknown')} ms, retries {meta.get('kafka_retries', 'unknown')} when supported",
-        f"- services: {meta.get('services', 'unknown')}",
-        f"- workload: {meta.get('vus', 'unknown')} VUs for {meta.get('duration', 'unknown')} (warmup {meta.get('warmup_duration', 'unknown')})",
-        f"- receiver budget: {meta.get('receiver_cpus', 'unknown')} CPU / {meta.get('receiver_memory', 'unknown')}",
-        f"- kafka budget: {meta.get('kafka_cpus', 'unknown')} CPU / {meta.get('kafka_memory', 'unknown')}",
     ]
+    if "git_dirty" in meta:
+        lines.append(f"- git dirty: {meta.get('git_dirty')}")
+    if meta.get("quarkus_platform_version"):
+        lines.append(f"- Quarkus platform: {meta.get('quarkus_platform_version')}")
+    lines.extend(
+        [
+            f"- kafka enabled: {kafka_enabled_label(meta)}",
+            f"- kafka acks: {meta.get('kafka_acks', 'unknown')}",
+            f"- kafka topic: {meta.get('kafka_topic', 'unknown')} ({meta.get('kafka_topic_partitions', 'unknown')} partitions, rf {meta.get('kafka_topic_replication_factor', 'unknown')}, min ISR {meta.get('kafka_topic_min_isr', 'unknown')})",
+            f"- kafka producer tuning: linger {meta.get('kafka_linger_ms', 'unknown')} ms, batch {meta.get('kafka_batch_bytes', 'unknown')} bytes, request timeout {meta.get('kafka_request_timeout_ms', 'unknown')} ms, retry backoff {meta.get('kafka_retry_backoff_ms', 'unknown')} ms, retries {meta.get('kafka_retries', 'unknown')} when supported",
+            f"- services: {meta.get('services', 'unknown')}",
+            f"- workload: {meta.get('vus', 'unknown')} VUs for {meta.get('duration', 'unknown')} (warmup {meta.get('warmup_duration', 'unknown')})",
+            f"- receiver budget: {meta.get('receiver_cpus', 'unknown')} CPU / {meta.get('receiver_memory', 'unknown')}",
+            f"- kafka budget: {meta.get('kafka_cpus', 'unknown')} CPU / {meta.get('kafka_memory', 'unknown')}",
+        ]
+    )
 
     current_mode = meta.get("delivery_mode", "unknown")
     if current_mode == "http-only":
@@ -713,7 +732,7 @@ def write_summary_markdown(
                     "## Matched HTTP vs Kafka Delta",
                     "",
                     f"- matched comparison run: {mode_comparison.get('matched_results_name', 'unknown')} ({mode_comparison.get('matched_delivery_mode', 'unknown')})",
-                    "- comparison basis: same git SHA, normalized OS/kernel signature, workload, budgets, concurrency, and shared Kafka producer tuning",
+                    "- comparison basis: clean git state, same git SHA, Quarkus platform, normalized OS/kernel signature, workload, budgets, concurrency, and shared Kafka producer tuning",
                     "- read this table before inferring framework quality from `enqueue` or `confirm` rankings.",
                     "",
                     "| service | http-only efficiency rank | current efficiency rank | http-only req/s/core | kafka mode | kafka req/s/core | http-only req/s avg | kafka req/s avg | throughput retained vs http-only | throughput lost vs http-only | est. added Kafka latency (ms) | latency x vs http-only |",
@@ -755,10 +774,15 @@ def main() -> int:
 
     write_csv(results_dir / "runs.csv", rows)
     write_csv(results_dir / "summary.csv", aggregates)
+    comparison_csv_path = results_dir / "mode-comparison.csv"
+    wrote_comparison_csv = False
     if mode_comparison is not None:
         comparison_rows = mode_comparison.get("rows")
         if isinstance(comparison_rows, list):
-            write_csv(results_dir / "mode-comparison.csv", comparison_rows)
+            write_csv(comparison_csv_path, comparison_rows)
+            wrote_comparison_csv = True
+    if not wrote_comparison_csv:
+        comparison_csv_path.unlink(missing_ok=True)
     write_summary_markdown(results_dir / "summary.md", meta, aggregates, mode_comparison)
 
     payload = {

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-03T10:57:10.795887+10:00",
+  "generated_at": "2026-07-04T16:43:53.624842+10:00",
   "repo": {
     "name": "rtb-ingress-benchmark",
     "url": "https://github.com/dtkmn/rtb-ingress-benchmark",
@@ -17,11 +17,568 @@
     "enqueue"
   ],
   "latest_by_mode": {
-    "confirm": "20260503-003926",
-    "http-only": "20260503-005939",
-    "enqueue": "20260503-012856"
+    "confirm": "20260703-225123",
+    "http-only": "20260704-152658",
+    "enqueue": "20260704-162801"
   },
   "snapshots": [
+    {
+      "id": "20260704-162801",
+      "timestamp": "2026-07-04T16:28:01+10:00",
+      "date_label": "2026-07-04",
+      "time_label": "16:28",
+      "mode": "enqueue",
+      "mode_label": "Enqueue",
+      "publication_state": "published",
+      "source_kind": "result-summary",
+      "benchmark_preset": "custom",
+      "fairness_profile": "fixed-envelope",
+      "git_sha": "eabb0d0c488bfa4b3cc1807125cb920e257b9c22",
+      "git_sha_short": "eabb0d0",
+      "git_dirty": "false",
+      "quarkus_platform_version": "3.37.1",
+      "commit_url": "https://github.com/dtkmn/rtb-ingress-benchmark/commit/eabb0d0c488bfa4b3cc1807125cb920e257b9c22",
+      "services_count": 8,
+      "services": [
+        "quarkus-receiver",
+        "quarkus-receiver-native",
+        "go-receiver",
+        "rust-receiver",
+        "python-receiver",
+        "spring-receiver",
+        "spring-virtual-receiver",
+        "node-receiver"
+      ],
+      "workload": "100 VUs for 30s (warmup 10s)",
+      "budget": "receiver 2.0 CPU / 768m, Kafka 2.0 CPU / 1g",
+      "primary_metric_key": "req_per_measured_stack_core",
+      "primary_metric_label": "req/s / measured stack avg core",
+      "top_primary_service_label": "Rust",
+      "top_primary_metric": 27254.87039513628,
+      "cards": {
+        "top_throughput": {
+          "label": "Top throughput",
+          "service_label": "Rust",
+          "metric": "37529.38 req/s"
+        },
+        "best_p95": {
+          "label": "Best p95",
+          "service_label": "Rust",
+          "metric": "5.93 ms"
+        },
+        "best_efficiency": {
+          "label": "Best req/s / measured stack avg core",
+          "service_label": "Rust",
+          "metric": "27254.87"
+        },
+        "lowest_memory": {
+          "label": "Lowest memory",
+          "service_label": "Rust",
+          "metric": "18.04 MiB"
+        }
+      },
+      "rows": [
+        {
+          "service_id": "rust-receiver",
+          "service_label": "Rust",
+          "runs": 3,
+          "req_s": 37529.380267428816,
+          "p95_ms": 5.925999999999999,
+          "req_per_cpu_limit": 18764.690133714408,
+          "req_per_measured_stack_core": 27254.87039513628,
+          "req_per_measured_stack_gib": 70200.1274412414,
+          "mem_avg_mib": 18.037272485226314,
+          "cpu_avg_pct": 101.4845458146633
+        },
+        {
+          "service_id": "quarkus-receiver",
+          "service_label": "Quarkus JVM",
+          "runs": 3,
+          "req_s": 34316.23896376008,
+          "p95_ms": 6.295999999999999,
+          "req_per_cpu_limit": 17158.11948188004,
+          "req_per_measured_stack_core": 17280.17826571837,
+          "req_per_measured_stack_gib": 44625.726725071436,
+          "mem_avg_mib": 287.6409961685824,
+          "cpu_avg_pct": 168.20616091954022
+        },
+        {
+          "service_id": "spring-receiver",
+          "service_label": "Spring WebFlux",
+          "runs": 3,
+          "req_s": 29412.302233567316,
+          "p95_ms": 7.269666666666667,
+          "req_per_cpu_limit": 14706.151116783658,
+          "req_per_measured_stack_core": 14463.610222501406,
+          "req_per_measured_stack_gib": 36981.47389486505,
+          "mem_avg_mib": 283.50169491525423,
+          "cpu_avg_pct": 178.91943502824859
+        },
+        {
+          "service_id": "spring-virtual-receiver",
+          "service_label": "Spring Virtual Threads",
+          "runs": 3,
+          "req_s": 29326.59261640368,
+          "p95_ms": 6.751,
+          "req_per_cpu_limit": 14663.29630820184,
+          "req_per_measured_stack_core": 12873.455082981935,
+          "req_per_measured_stack_gib": 37238.34301004996,
+          "mem_avg_mib": 268.664802259887,
+          "cpu_avg_pct": 201.43243126177023
+        },
+        {
+          "service_id": "go-receiver",
+          "service_label": "Go",
+          "runs": 3,
+          "req_s": 26389.91037692435,
+          "p95_ms": 8.676666666666668,
+          "req_per_cpu_limit": 13194.955188462174,
+          "req_per_measured_stack_core": 13034.099141720551,
+          "req_per_measured_stack_gib": 41885.96110643764,
+          "mem_avg_mib": 117.85767984934087,
+          "cpu_avg_pct": 173.55154237288136
+        },
+        {
+          "service_id": "quarkus-receiver-native",
+          "service_label": "Quarkus Native",
+          "runs": 3,
+          "req_s": 24978.998303304248,
+          "p95_ms": 8.762333333333332,
+          "req_per_cpu_limit": 12489.499151652124,
+          "req_per_measured_stack_core": 11555.188864097268,
+          "req_per_measured_stack_gib": 38632.74538937257,
+          "mem_avg_mib": 137.15662835249043,
+          "cpu_avg_pct": 190.6027049808429
+        },
+        {
+          "service_id": "node-receiver",
+          "service_label": "Node / Fastify",
+          "runs": 3,
+          "req_s": 16406.646015822596,
+          "p95_ms": 12.360999999999999,
+          "req_per_cpu_limit": 8203.323007911298,
+          "req_per_measured_stack_core": 4638.86389453592,
+          "req_per_measured_stack_gib": 21114.35363415019,
+          "mem_avg_mib": 251.93615819209037,
+          "cpu_avg_pct": 208.79745762711866
+        },
+        {
+          "service_id": "python-receiver",
+          "service_label": "Python / FastAPI",
+          "runs": 3,
+          "req_s": 14923.418387756705,
+          "p95_ms": 10.079,
+          "req_per_cpu_limit": 7461.709193878352,
+          "req_per_measured_stack_core": 6880.533020608566,
+          "req_per_measured_stack_gib": 22524.805749894836,
+          "mem_avg_mib": 164.82026365348398,
+          "cpu_avg_pct": 198.57543691148774
+        }
+      ],
+      "top_service_label": "Rust",
+      "top_req_s": 37529.380267428816,
+      "interpretation": [
+        "Combined HTTP handling plus Kafka client enqueue/fire-and-forget behavior. Faster than confirm, but not equivalent to durable end-to-end delivery.",
+        "Rankings are environment-specific and should not be treated as universal backend rankings.",
+        "Matched delta data is available below, so you can see how much throughput changed relative to the paired mode."
+      ],
+      "mode_comparison": {
+        "matched_results_name": "20260704-152658",
+        "matched_delivery_mode": "http-only",
+        "rows": [
+          {
+            "service_label": "Rust",
+            "current_rank": 1,
+            "paired_rank": 1,
+            "retained_pct": 95.51225844767004,
+            "lost_pct": 4.487741552329972,
+            "added_latency_ms": 0.11868126393212108,
+            "http_only_req_s": 39292.736741211804,
+            "paired_req_s": 37529.380267428816
+          },
+          {
+            "service_label": "Quarkus JVM",
+            "current_rank": 2,
+            "paired_rank": 2,
+            "retained_pct": 88.22340638020216,
+            "lost_pct": 11.776593619797836,
+            "added_latency_ms": 0.33217706288756643,
+            "http_only_req_s": 38896.977992294844,
+            "paired_req_s": 34316.23896376008
+          },
+          {
+            "service_label": "Spring WebFlux",
+            "current_rank": 3,
+            "paired_rank": 4,
+            "retained_pct": 85.50529089818059,
+            "lost_pct": 14.494709101819414,
+            "added_latency_ms": 0.49260561849391893,
+            "http_only_req_s": 34398.224863758885,
+            "paired_req_s": 29412.302233567316
+          },
+          {
+            "service_label": "Go",
+            "current_rank": 4,
+            "paired_rank": 3,
+            "retained_pct": 76.67973384436479,
+            "lost_pct": 23.320266155635206,
+            "added_latency_ms": 0.8831556265132683,
+            "http_only_req_s": 34415.75635941484,
+            "paired_req_s": 26389.91037692435
+          },
+          {
+            "service_label": "Spring Virtual Threads",
+            "current_rank": 5,
+            "paired_rank": 6,
+            "retained_pct": 94.80407980979936,
+            "lost_pct": 5.195920190200631,
+            "added_latency_ms": 0.18408380944527458,
+            "http_only_req_s": 30933.89300886643,
+            "paired_req_s": 29326.59261640368
+          },
+          {
+            "service_label": "Quarkus Native",
+            "current_rank": 6,
+            "paired_rank": 5,
+            "retained_pct": 81.28963764619589,
+            "lost_pct": 18.71036235380411,
+            "added_latency_ms": 0.7447754502695698,
+            "http_only_req_s": 30728.3917441268,
+            "paired_req_s": 24978.998303304248
+          },
+          {
+            "service_label": "Python / FastAPI",
+            "current_rank": 7,
+            "paired_rank": 8,
+            "retained_pct": 83.52564403195666,
+            "lost_pct": 16.47435596804334,
+            "added_latency_ms": 1.1034830619749476,
+            "http_only_req_s": 17866.870181865404,
+            "paired_req_s": 14923.418387756705
+          },
+          {
+            "service_label": "Node / Fastify",
+            "current_rank": 8,
+            "paired_rank": 7,
+            "retained_pct": 55.15328766314235,
+            "lost_pct": 44.84671233685765,
+            "added_latency_ms": 2.727746830648053,
+            "http_only_req_s": 29747.35815574377,
+            "paired_req_s": 16406.646015822596
+          }
+        ]
+      }
+    },
+    {
+      "id": "20260704-152658",
+      "timestamp": "2026-07-04T15:26:58+10:00",
+      "date_label": "2026-07-04",
+      "time_label": "15:26",
+      "mode": "http-only",
+      "mode_label": "HTTP-only",
+      "publication_state": "published",
+      "source_kind": "result-summary",
+      "benchmark_preset": "custom",
+      "fairness_profile": "fixed-envelope",
+      "git_sha": "eabb0d0c488bfa4b3cc1807125cb920e257b9c22",
+      "git_sha_short": "eabb0d0",
+      "git_dirty": "false",
+      "quarkus_platform_version": "3.37.1",
+      "commit_url": "https://github.com/dtkmn/rtb-ingress-benchmark/commit/eabb0d0c488bfa4b3cc1807125cb920e257b9c22",
+      "services_count": 8,
+      "services": [
+        "quarkus-receiver",
+        "quarkus-receiver-native",
+        "go-receiver",
+        "rust-receiver",
+        "python-receiver",
+        "spring-receiver",
+        "spring-virtual-receiver",
+        "node-receiver"
+      ],
+      "workload": "100 VUs for 30s (warmup 10s)",
+      "budget": "receiver 2.0 CPU / 768m, Kafka 2.0 CPU / 1g",
+      "primary_metric_key": "req_per_measured_stack_core",
+      "primary_metric_label": "req/s / measured stack avg core",
+      "top_primary_service_label": "Rust",
+      "top_primary_metric": 47233.175020368704,
+      "cards": {
+        "top_throughput": {
+          "label": "Top throughput",
+          "service_label": "Rust",
+          "metric": "39292.74 req/s"
+        },
+        "best_p95": {
+          "label": "Best p95",
+          "service_label": "Quarkus JVM",
+          "metric": "5.74 ms"
+        },
+        "best_efficiency": {
+          "label": "Best req/s / measured stack avg core",
+          "service_label": "Rust",
+          "metric": "47233.18"
+        },
+        "lowest_memory": {
+          "label": "Lowest memory",
+          "service_label": "Rust",
+          "metric": "15.23 MiB"
+        }
+      },
+      "rows": [
+        {
+          "service_id": "rust-receiver",
+          "service_label": "Rust",
+          "runs": 3,
+          "req_s": 39292.736741211804,
+          "p95_ms": 5.736999999999999,
+          "req_per_cpu_limit": 19646.368370605902,
+          "req_per_measured_stack_core": 47233.175020368704,
+          "req_per_measured_stack_gib": 2642887.6161671313,
+          "mem_avg_mib": 15.22535593220339,
+          "cpu_avg_pct": 83.18375894538606
+        },
+        {
+          "service_id": "quarkus-receiver",
+          "service_label": "Quarkus JVM",
+          "runs": 3,
+          "req_s": 38896.977992294844,
+          "p95_ms": 5.735333333333333,
+          "req_per_cpu_limit": 19448.488996147422,
+          "req_per_measured_stack_core": 25763.102399287134,
+          "req_per_measured_stack_gib": 156964.2540272126,
+          "mem_avg_mib": 258.52871939736343,
+          "cpu_avg_pct": 150.83704708097926
+        },
+        {
+          "service_id": "go-receiver",
+          "service_label": "Go",
+          "runs": 3,
+          "req_s": 34415.75635941484,
+          "p95_ms": 6.116333333333333,
+          "req_per_cpu_limit": 17207.87817970742,
+          "req_per_measured_stack_core": 25323.185953190714,
+          "req_per_measured_stack_gib": 1016920.0956268156,
+          "mem_avg_mib": 34.65626164036626,
+          "cpu_avg_pct": 135.97834437301125
+        },
+        {
+          "service_id": "spring-receiver",
+          "service_label": "Spring WebFlux",
+          "runs": 3,
+          "req_s": 34398.224863758885,
+          "p95_ms": 6.284116666666652,
+          "req_per_cpu_limit": 17199.112431879443,
+          "req_per_measured_stack_core": 20611.12517649736,
+          "req_per_measured_stack_gib": 136475.66931203872,
+          "mem_avg_mib": 258.11037210208457,
+          "cpu_avg_pct": 166.8900513020326
+        },
+        {
+          "service_id": "spring-virtual-receiver",
+          "service_label": "Spring Virtual Threads",
+          "runs": 3,
+          "req_s": 30933.89300886643,
+          "p95_ms": 6.553,
+          "req_per_cpu_limit": 15466.946504433216,
+          "req_per_measured_stack_core": 16556.375261539662,
+          "req_per_measured_stack_gib": 138640.6538909687,
+          "mem_avg_mib": 228.50184557438794,
+          "cpu_avg_pct": 186.84497175141243
+        },
+        {
+          "service_id": "quarkus-receiver-native",
+          "service_label": "Quarkus Native",
+          "runs": 3,
+          "req_s": 30728.3917441268,
+          "p95_ms": 9.945333333333332,
+          "req_per_cpu_limit": 15364.1958720634,
+          "req_per_measured_stack_core": 16924.312788487226,
+          "req_per_measured_stack_gib": 245900.21609894783,
+          "mem_avg_mib": 127.96068186245861,
+          "cpu_avg_pct": 181.55948120007793
+        },
+        {
+          "service_id": "node-receiver",
+          "service_label": "Node / Fastify",
+          "runs": 3,
+          "req_s": 29747.35815574377,
+          "p95_ms": 7.857616666666654,
+          "req_per_cpu_limit": 14873.679077871884,
+          "req_per_measured_stack_core": 16177.951896572138,
+          "req_per_measured_stack_gib": 146036.73843561683,
+          "mem_avg_mib": 208.58952919020714,
+          "cpu_avg_pct": 183.8734463276836
+        },
+        {
+          "service_id": "python-receiver",
+          "service_label": "Python / FastAPI",
+          "runs": 3,
+          "req_s": 17866.870181865404,
+          "p95_ms": 8.123333333333333,
+          "req_per_cpu_limit": 8933.435090932702,
+          "req_per_measured_stack_core": 9282.772577298869,
+          "req_per_measured_stack_gib": 112994.94036850346,
+          "mem_avg_mib": 161.91426553672315,
+          "cpu_avg_pct": 192.49625329566857
+        }
+      ],
+      "top_service_label": "Rust",
+      "top_req_s": 39292.736741211804,
+      "interpretation": [
+        "Isolates parsing, validation, filtering, and response handling without Kafka in the path.",
+        "Rankings are environment-specific and should not be treated as universal backend rankings."
+      ],
+      "mode_comparison": null
+    },
+    {
+      "id": "20260703-225123",
+      "timestamp": "2026-07-03T22:51:23+10:00",
+      "date_label": "2026-07-03",
+      "time_label": "22:51",
+      "mode": "confirm",
+      "mode_label": "Confirm",
+      "publication_state": "published",
+      "source_kind": "result-summary",
+      "benchmark_preset": "strict-1",
+      "fairness_profile": "strict-1",
+      "git_sha": "271b287ff28f52b88d07de8457a43be2ad7c2644",
+      "git_sha_short": "271b287",
+      "git_dirty": "false",
+      "quarkus_platform_version": "3.37.1",
+      "commit_url": "https://github.com/dtkmn/rtb-ingress-benchmark/commit/271b287ff28f52b88d07de8457a43be2ad7c2644",
+      "services_count": 7,
+      "services": [
+        "quarkus-receiver",
+        "quarkus-receiver-native",
+        "go-receiver",
+        "rust-receiver",
+        "python-receiver",
+        "spring-receiver",
+        "node-receiver"
+      ],
+      "workload": "100 VUs for 30s (warmup 10s)",
+      "budget": "receiver 2.0 CPU / 768m, Kafka 2.0 CPU / 1g",
+      "primary_metric_key": "req_per_measured_stack_core",
+      "primary_metric_label": "req/s / measured stack avg core",
+      "top_primary_service_label": "Rust",
+      "top_primary_metric": 25949.217742591107,
+      "cards": {
+        "top_throughput": {
+          "label": "Top throughput",
+          "service_label": "Rust",
+          "metric": "7282.62 req/s"
+        },
+        "best_p95": {
+          "label": "Best p95",
+          "service_label": "Rust",
+          "metric": "17.69 ms"
+        },
+        "best_efficiency": {
+          "label": "Best req/s / measured stack avg core",
+          "service_label": "Rust",
+          "metric": "25949.22"
+        },
+        "lowest_memory": {
+          "label": "Lowest memory",
+          "service_label": "Rust",
+          "metric": "17.90 MiB"
+        }
+      },
+      "rows": [
+        {
+          "service_id": "rust-receiver",
+          "service_label": "Rust",
+          "runs": 3,
+          "req_s": 7282.619172611695,
+          "p95_ms": 17.68788333333333,
+          "req_per_cpu_limit": 3641.3095863058475,
+          "req_per_measured_stack_core": 25949.217742591107,
+          "req_per_measured_stack_gib": 13735.710254298307,
+          "mem_avg_mib": 17.898169491525422,
+          "cpu_avg_pct": 17.748442561205273
+        },
+        {
+          "service_id": "spring-receiver",
+          "service_label": "Spring WebFlux",
+          "runs": 3,
+          "req_s": 7066.733062018763,
+          "p95_ms": 18.316,
+          "req_per_cpu_limit": 3533.3665310093816,
+          "req_per_measured_stack_core": 16441.355401271652,
+          "req_per_measured_stack_gib": 8860.585086500496,
+          "mem_avg_mib": 285.8825248392753,
+          "cpu_avg_pct": 32.720874732125466
+        },
+        {
+          "service_id": "go-receiver",
+          "service_label": "Go",
+          "runs": 3,
+          "req_s": 6917.0753740959035,
+          "p95_ms": 19.73346666666666,
+          "req_per_cpu_limit": 3458.5376870479517,
+          "req_per_measured_stack_core": 14204.529904701403,
+          "req_per_measured_stack_gib": 12486.655774993842,
+          "mem_avg_mib": 61.40630131826742,
+          "cpu_avg_pct": 36.610979284369115
+        },
+        {
+          "service_id": "quarkus-receiver",
+          "service_label": "Quarkus JVM",
+          "runs": 3,
+          "req_s": 6673.323252588441,
+          "p95_ms": 19.460616666666663,
+          "req_per_cpu_limit": 3336.6616262942207,
+          "req_per_measured_stack_core": 14680.405132637672,
+          "req_per_measured_stack_gib": 9067.42055214361,
+          "mem_avg_mib": 278.0942262484577,
+          "cpu_avg_pct": 30.63646392622898
+        },
+        {
+          "service_id": "node-receiver",
+          "service_label": "Node / Fastify",
+          "runs": 3,
+          "req_s": 6358.03047356478,
+          "p95_ms": 21.306016666666657,
+          "req_per_cpu_limit": 3179.01523678239,
+          "req_per_measured_stack_core": 3521.5185617560346,
+          "req_per_measured_stack_gib": 9779.471260100352,
+          "mem_avg_mib": 126.04271186440678,
+          "cpu_avg_pct": 114.13677589453862
+        },
+        {
+          "service_id": "quarkus-receiver-native",
+          "service_label": "Quarkus Native",
+          "runs": 3,
+          "req_s": 6254.717273835383,
+          "p95_ms": 20.979333333333333,
+          "req_per_cpu_limit": 3127.3586369176915,
+          "req_per_measured_stack_core": 12178.903207063588,
+          "req_per_measured_stack_gib": 11852.7591985081,
+          "mem_avg_mib": 41.55525839340217,
+          "cpu_avg_pct": 39.57126391324112
+        },
+        {
+          "service_id": "python-receiver",
+          "service_label": "Python / FastAPI",
+          "runs": 3,
+          "req_s": 5834.241353790137,
+          "p95_ms": 21.572666666666663,
+          "req_per_cpu_limit": 2917.1206768950683,
+          "req_per_measured_stack_core": 8655.37592218696,
+          "req_per_measured_stack_gib": 9929.692483013363,
+          "mem_avg_mib": 72.84034274952919,
+          "cpu_avg_pct": 57.08525800376648
+        }
+      ],
+      "top_service_label": "Rust",
+      "top_req_s": 7282.619172611695,
+      "interpretation": [
+        "Combined HTTP handling plus Kafka delivery confirmation. Useful for conservative ingress-path behavior, not pure framework speed.",
+        "Rankings are environment-specific and should not be treated as universal backend rankings.",
+        "No matched HTTP-only comparison is available for this snapshot, so raw rank is easier to misread."
+      ],
+      "mode_comparison": null
+    },
     {
       "id": "20260503-012856",
       "timestamp": "2026-05-03T01:28:56+10:00",

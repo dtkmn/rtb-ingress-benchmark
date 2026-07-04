@@ -16,39 +16,42 @@ Local runs under `results/` are scratch data until their snapshot IDs are explic
 
 | Mode | Published snapshot | Git SHA | Primary metric | Current published top result |
 |------|--------------------|---------|----------------|------------------------------|
-| `confirm` | 2026-05-03 (`20260503-003926`, strict-1) | `740d25a` | `req/s / measured stack avg core` | Spring WebFlux, 15015.54 req/s/core |
-| `http-only` | 2026-05-03 (`20260503-005939`, fixed-envelope) | `740d25a` | `req/s / measured stack avg core` | Rust / Actix, 38480.29 req/s/core |
-| `enqueue` | 2026-05-03 (`20260503-012856`, fixed-envelope) | `740d25a` | `req/s / measured stack avg core` | Rust / Actix, 16677.20 req/s/core |
+| `confirm` | 2026-07-03 (`20260703-225123`, strict-1) | `271b287` | `req/s / measured stack avg core` | Rust / Actix, 25949.22 req/s/core |
+| `http-only` | 2026-07-04 (`20260704-152658`, fixed-envelope) | `eabb0d0` | `req/s / measured stack avg core` | Rust / Actix, 47233.18 req/s/core |
+| `enqueue` | 2026-07-04 (`20260704-162801`, fixed-envelope) | `eabb0d0` | `req/s / measured stack avg core` | Rust / Actix, 27254.87 req/s/core |
 
-Latest published `confirm` ranking (`20260503-003926`, strict-1):
+Latest published `confirm` ranking (`20260703-225123`, strict-1):
 
 | Rank | Service | `req/s / measured stack avg core` | Raw `req/s avg` | p95 avg |
 |-----:|---------|----------------------------------:|----------------:|--------:|
-| 1 | Spring WebFlux | 15015.54 | 7306.14 | 18.93 ms |
-| 2 | Rust / Actix | 13937.31 | 6815.80 | 25.42 ms |
-| 3 | Quarkus JVM | 6486.70 | 6131.49 | 28.11 ms |
-| 4 | Python / FastAPI | 5960.38 | 6325.54 | 27.02 ms |
-| 5 | Go / Gin | 5774.84 | 5731.93 | 31.86 ms |
-| 6 | Quarkus Native | 5744.32 | 5385.69 | 30.64 ms |
-| 7 | Node / Fastify | 1946.11 | 3348.29 | 51.93 ms |
+| 1 | Rust / Actix | 25949.22 | 7282.62 | 17.69 ms |
+| 2 | Spring WebFlux | 16441.36 | 7066.73 | 18.32 ms |
+| 3 | Quarkus JVM | 14680.41 | 6673.32 | 19.46 ms |
+| 4 | Go / Gin | 14204.53 | 6917.08 | 19.73 ms |
+| 5 | Quarkus Native | 12178.90 | 6254.72 | 20.98 ms |
+| 6 | Python / FastAPI | 8655.38 | 5834.24 | 21.57 ms |
+| 7 | Node / Fastify | 3521.52 | 6358.03 | 21.31 ms |
 
 Published snapshot controls:
 
 - **Workload:** `100` VUs for `30s` with `10s` warmup
 - **Budget:** receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g`
 - **Strict `confirm`:** `BENCHMARK_PRESET=strict-1`, one HTTP lane, one producer lane, one Kafka partition, topic `bids-strict-1`, retries `0`; excludes `spring-virtual-receiver`
+- **Latest strict `confirm` metadata:** `git_dirty=false`, Quarkus platform `3.37.1`, Docker `29.6.1`, Compose `5.1.4`
 - **`http-only` and `enqueue`:** `BENCHMARK_PRESET=custom`, `BENCHMARK_FAIRNESS_PROFILE=fixed-envelope`, derived parallelism `2`, producer pool `2`, topic `bids` with `3` partitions; includes all 8 receiver lanes
+- **Latest fixed-envelope metadata:** `git_dirty=false`, Quarkus platform `3.37.1`, Docker `29.6.1`, Compose `5.3.0`
 - **Kafka tuning:** `linger=10ms`, `batch=131072`, `request_timeout=5000ms`, `retry_backoff=100ms`; `confirm` uses `acks=1`, `enqueue` uses `acks=0`
 - **Promotion gate:** a local result is not dashboard-published unless its ID is listed in `site/src/data/published-snapshots.json`
 
 Current published takeaways:
 
-- In the latest published strict-1 `confirm` run, Spring WebFlux led the primary CPU-normalized result at 15015.54 req/s/core and also led raw throughput at 7306.14 req/s.
-- Rust ranked second on CPU-normalized `confirm` throughput at 13937.31 req/s/core and led `confirm` memory-normalized throughput at 11844.60 req/s/GiB.
-- In the latest published fixed-envelope `http-only` run, Rust led both CPU-normalized capacity at 38480.29 req/s/core and raw throughput at 26227.59 req/s.
-- In the latest published fixed-envelope `enqueue` run, Rust led CPU-normalized capacity at 16677.20 req/s/core; Quarkus JVM led raw throughput at 24915.85 req/s.
-- The May 3 published set covers all three modes, but the strict `confirm` row and fixed-envelope `http-only`/`enqueue` rows answer different topology questions, so do not collapse them into one universal winner.
-- The Apr 24 local `confirm` run (`20260424-202643`) remains exploratory evidence, not the published baseline.
+- In the latest published strict-1 `confirm` run, Rust led the primary CPU-normalized result at 25949.22 req/s/core and also led raw throughput at 7282.62 req/s.
+- Spring WebFlux stayed strong in second at 16441.36 req/s/core; Quarkus JVM ranked third by CPU-normalized efficiency at 14680.41 req/s/core even though Go had higher raw throughput.
+- In the latest published fixed-envelope `http-only` run, Rust led both CPU-normalized capacity at 47233.18 req/s/core and raw throughput at 39292.74 req/s.
+- In the latest published fixed-envelope `enqueue` run, Rust led both CPU-normalized capacity at 27254.87 req/s/core and raw throughput at 37529.38 req/s; Quarkus JVM ranked second by CPU-normalized efficiency at 17280.18 req/s/core.
+- The matched July 4 `http-only` -> `enqueue` delta shows Rust retained 95.51% of raw HTTP-only throughput, Quarkus JVM retained 88.22%, and Node retained 55.15%. That is the point: Kafka-path behavior is not the same question as pure HTTP framework overhead.
+- The published set is still mode-specific: `confirm` is the July 3 strict-1 run at `271b287`, while `http-only` and `enqueue` are the July 4 fixed-envelope runs at `eabb0d0`. Do not collapse them into one universal winner.
+- The Apr 24 local `confirm` run (`20260424-202643`) and the dirty July 3 reconnaissance run (`20260703-122655`) remain exploratory evidence, not published baselines.
 - Cross-mode rank changes were material once Kafka confirmation stayed in the request path; the published dashboard makes those mode-specific rankings much easier to compare cleanly.
 - Raw `req/s avg` is not the primary capacity-planning result. Treat `req/s / measured stack avg core` as the main efficiency ranking, then use raw throughput, memory efficiency, latency, and error rates as guardrails.
 
