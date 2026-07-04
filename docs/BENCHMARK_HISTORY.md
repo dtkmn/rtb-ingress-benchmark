@@ -18,7 +18,7 @@ This page keeps the dated benchmark trail so the README can stay focused on the 
 
 ## Current Published Snapshots
 
-- **Services:** July 3 `confirm` uses 7 strict-compatible receiver lanes; May 3 `http-only` and `enqueue` use all 8 receiver lanes
+- **Services:** July 3 `confirm` uses 7 strict-compatible receiver lanes; July 4 `http-only` and `enqueue` use all 8 receiver lanes
 - **Workload:** `100` VUs for `30s` with `10s` warmup
 - **Budget:** receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g`
 - **Dashboard source of truth:** [`site/src/data/site-data.json`](../site/src/data/site-data.json)
@@ -27,29 +27,31 @@ This page keeps the dated benchmark trail so the README can stay focused on the 
 | Mode | Snapshot | Git SHA | Primary result |
 |---|---|---|---|
 | `confirm` | `20260703-225123` | `271b287` | Rust / Actix, 25949.22 req/s/core |
-| `http-only` | `20260503-005939` | `740d25a` | Rust / Actix, 38480.29 req/s/core |
-| `enqueue` | `20260503-012856` | `740d25a` | Rust / Actix, 16677.20 req/s/core |
+| `http-only` | `20260704-152658` | `eabb0d0` | Rust / Actix, 47233.18 req/s/core |
+| `enqueue` | `20260704-162801` | `eabb0d0` | Rust / Actix, 27254.87 req/s/core |
 
 Current snapshot notes:
 
 - `http-only` is the cleanest read on framework/runtime overhead for this setup.
 - `confirm` is the better read on conservative ingress behavior with Kafka delivery confirmation in the request path.
-- The published set is intentionally mixed by mode: `confirm` is the clean July 3 strict-1 run, while `http-only` and `enqueue` remain May 3 fixed-envelope runs. Do not imply one synchronized topology across all three rows.
-- Matched mode deltas are useful only when the compared runs share compatible metadata.
+- The published set is intentionally mode-specific: `confirm` is the clean July 3 strict-1 run at `271b287`, while `http-only` and `enqueue` are clean July 4 fixed-envelope runs at `eabb0d0`.
+- The July 4 `http-only` and `enqueue` snapshots share compatible metadata and should be used for matched HTTP-vs-Kafka enqueue deltas.
 - The older published March snapshots predate explicit `benchmark_preset` and `fairness_profile` metadata; do not retrofit `strict-1` labels onto them.
 
 ## Recent Refresh Decisions
 
 | Date | Change | Decision | Follow-through |
 |---|---|---|---|
+| 2026-07-04 | `http-only` and `enqueue` were stale next to the new July 3 `confirm` result, so both fixed-envelope modes were rerun from a clean clone at `eabb0d0` | Both clean runs passed with `git_dirty=false`, Quarkus platform `3.37.1`, Docker `29.6.1`, and Compose `5.3.0`. Rust led `http-only` at 47233.18 req/s/core and `enqueue` at 27254.87 req/s/core. | Promoted `20260704-152658` and `20260704-162801`; regenerated `site/src/data/site-data.json`; updated README and this history page. |
 | 2026-07-03 | Quarkus platform now records as `3.37.1` for `quarkus-receiver` and `quarkus-sinker`, alongside benchmark publication metadata/script changes | Dirty strict-1 `confirm` reconnaissance run `20260703-122655` was enough to justify a clean rerun, but not enough to publish. Clean strict-1 `confirm` run `20260703-225123` passed with `git_dirty=false`; Rust led at 25949.22 req/s/core and 7282.62 raw req/s. | Promoted `20260703-225123` as the current published `confirm` snapshot. Kept May 3 `http-only` and `enqueue` snapshots in place until those modes are rerun cleanly. |
 
 ## Snapshot Log
 
 | Snapshot Date | Git SHA | Modes | Services | Workload / Budget | Result Links | Notes |
 |---|---|---|---|---|---|---|
+| 2026-07-04 | `eabb0d0` | `http-only`, `enqueue` | 8 receiver lanes | `custom` fixed-envelope, `100` VUs, `30s`, receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g`, Quarkus platform `3.37.1`, `git_dirty=false` | [`http-only`](../results/20260704-152658/summary.md) · [`enqueue`](../results/20260704-162801/summary.md) | Latest published fixed-envelope baseline set. Rust led `http-only` at 47233.18 req/s/core and 39292.74 raw req/s; Rust also led `enqueue` at 27254.87 req/s/core and 37529.38 raw req/s. |
 | 2026-07-03 | `271b287` | `confirm` | 7 strict-compatible receiver lanes | `strict-1`, `100` VUs, `30s`, receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g`, Quarkus platform `3.37.1`, `git_dirty=false` | [`confirm`](../results/20260703-225123/summary.md) | Latest published `confirm` baseline. Rust led at 25949.22 req/s/core and 7282.62 raw req/s; Spring WebFlux ranked second by CPU-normalized result; Quarkus JVM ranked third. |
-| 2026-05-03 | `740d25a` | `confirm`, `http-only`, `enqueue` | 7 strict-compatible receiver lanes for `confirm`; 8 receiver lanes for `http-only` and `enqueue` | `100` VUs, `30s`, receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g` | [`confirm`](../results/20260503-003926/summary.md) · [`http-only`](../results/20260503-005939/summary.md) · [`enqueue`](../results/20260503-012856/summary.md) | Latest published `http-only` and `enqueue` baseline set; the May 3 `confirm` snapshot is now historical. `confirm` is strict-1; `http-only` and `enqueue` are fixed-envelope. |
+| 2026-05-03 | `740d25a` | `confirm`, `http-only`, `enqueue` | 7 strict-compatible receiver lanes for `confirm`; 8 receiver lanes for `http-only` and `enqueue` | `100` VUs, `30s`, receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g` | [`confirm`](../results/20260503-003926/summary.md) · [`http-only`](../results/20260503-005939/summary.md) · [`enqueue`](../results/20260503-012856/summary.md) | Prior published baseline set. `confirm` is strict-1; `http-only` and `enqueue` are fixed-envelope. |
 | 2026-03-26 | `a2c1f1d` | `confirm` | 8 receiver lanes | `100` VUs, `30s`, receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g` | Dashboard data: [`site-data.json`](../site/src/data/site-data.json) | Previous published `confirm` snapshot; Python / FastAPI led raw throughput in this run. |
 | 2026-03-12 | `7432aed` | `http-only`, `confirm`, `enqueue` | 8 receiver lanes | `100` VUs, `30s`, receiver `2.0 CPU / 768m`, Kafka `2.0 CPU / 1g` | [`http-only`](../results/20260312-190020/summary.md) · [`confirm`](../results/20260312-184014/summary.md) · [`enqueue`](../results/20260312-192216/summary.md) | First baseline with `spring-virtual-receiver`; matched `http-only` vs `confirm` delta available. |
 

@@ -1,6 +1,8 @@
 {
   "description": "Only snapshot IDs listed here are eligible for the published dashboard. Local results under results/ are exploratory until an ID is added here intentionally.",
   "snapshot_ids": [
+    "20260704-162801",
+    "20260704-152658",
     "20260703-225123",
     "20260503-003926",
     "20260503-005939",
