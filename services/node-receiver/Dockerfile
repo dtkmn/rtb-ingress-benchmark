@@ -1,4 +1,4 @@
-FROM node:26-bookworm-slim
+FROM node:26-trixie-slim
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -9,4 +9,3 @@ COPY src src
 EXPOSE 8080
 
 CMD ["node", "src/server.js"]
-
