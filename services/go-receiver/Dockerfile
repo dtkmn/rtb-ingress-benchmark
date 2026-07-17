@@ -21,7 +21,7 @@ RUN CGO_ENABLED=0 go build -o /app/receiver ./cmd/receiver/main.go
 
 # --- Stage 2: Final Image ---
 # Use a minimal Alpine image for the final, tiny container
-FROM alpine:3.23
+FROM alpine:3.24
 
 # Install wget for health checks
 RUN apk add --no-cache wget
