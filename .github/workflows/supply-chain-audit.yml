@@ -49,7 +49,7 @@ jobs:
         # "high" = high + critical; remove --audit-level to catch moderate too
         run: npm audit --audit-level=high
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.26.5'
           cache-dependency-path: services/go-receiver/go.sum
@@ -61,7 +61,7 @@ jobs:
         working-directory: services/go-receiver
         run: govulncheck ./...
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
