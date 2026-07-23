@@ -1,6 +1,6 @@
 # --- Stage 1: Build ---
 # Use the official Golang Alpine image as our builder
-FROM golang:1.26-alpine AS builder
+FROM golang:1.26.5-alpine AS builder
 
 # Set the working directory inside the container
 WORKDIR /src
@@ -21,7 +21,7 @@ RUN CGO_ENABLED=0 go build -o /app/receiver ./cmd/receiver/main.go
 
 # --- Stage 2: Final Image ---
 # Use a minimal Alpine image for the final, tiny container
-FROM alpine:3.23
+FROM alpine:3.24
 
 # Install wget for health checks
 RUN apk add --no-cache wget
