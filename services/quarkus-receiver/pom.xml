@@ -8,7 +8,7 @@
     <properties>
         <compiler-plugin.version>3.15.0</compiler-plugin.version>
         <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
-        <maven.compiler.release>21</maven.compiler.release>
+        <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
@@ -113,8 +113,8 @@
                         <configuration>
                             <rules>
                                 <requireJavaVersion>
-                                    <version>[21,22)</version>
-                                    <message>This benchmark build requires JDK 21 (LTS). Run `sdk env` from the repository root or set JAVA_HOME to a JDK 21 install.</message>
+                                    <version>[25,26)</version>
+                                    <message>This benchmark build requires JDK 25 (LTS). Run `sdk env` from the repository root or set JAVA_HOME to a JDK 25 install.</message>
                                 </requireJavaVersion>
                             </rules>
                         </configuration>

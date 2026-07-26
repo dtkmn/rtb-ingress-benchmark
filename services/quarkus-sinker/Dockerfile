@@ -8,8 +8,8 @@
 ####
 
 # Stage 1: Build the application with Maven
-# Using Java 21 to match runtime stage (distroless uses Java 21)
-FROM registry.access.redhat.com/ubi9/openjdk-21:1.24 AS builder
+# Using Java 25 (LTS) for both build and runtime
+FROM registry.access.redhat.com/ubi9/openjdk-25:1.24 AS builder
 
 USER root
 
@@ -33,9 +33,9 @@ COPY src ./src
 RUN ./mvnw package -DskipTests -B
 
 # Stage 2: Create the runtime image
-# Using Distroless for minimal attack surface and fewer CVEs
-# Note: gcr.io/distroless/java21-debian12 includes libstdc++ needed for RocksDB/Kafka Streams
-FROM gcr.io/distroless/java21-debian12:nonroot
+# Using Distroless Java 25 (LTS) on Debian 13 for minimal attack surface and fewer CVEs
+# Note: gcr.io/distroless/java25-debian13 includes libstdc++ needed for RocksDB/Kafka Streams
+FROM gcr.io/distroless/java25-debian13:nonroot
 
 ENV LANGUAGE='en_US:en'
 

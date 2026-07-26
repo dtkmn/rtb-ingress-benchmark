@@ -1,4 +1,4 @@
-FROM maven:3.9.11-eclipse-temurin-21 AS build
+FROM maven:3.9.11-eclipse-temurin-25 AS build
 WORKDIR /workspace
 
 COPY pom.xml .
@@ -19,7 +19,7 @@ RUN for attempt in 1 2 3; do \
     done; \
     exit 1
 
-FROM gcr.io/distroless/java21-debian12:nonroot
+FROM gcr.io/distroless/java25-debian13:nonroot
 WORKDIR /app
 
 COPY --from=build --chown=nonroot:nonroot /workspace/target/spring-virtual-receiver-*.jar /app/app.jar
