@@ -1,8 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/dtkmn/go-adtech-receiver/internal/handlers" // Internal import
 	"github.com/dtkmn/go-adtech-receiver/internal/kafka"    // Internal import
@@ -11,6 +14,14 @@ import (
 )
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "healthcheck" {
+		if err := checkHealth("http://127.0.0.1:8080/health"); err != nil {
+			log.Printf("Health check failed: %v", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	// Get Kafka URL from environment
 	kafkaURL := os.Getenv("KAFKA_BOOTSTRAP_SERVERS")
 	if kafkaURL == "" {
@@ -40,5 +51,22 @@ func main() {
 
 	// Run the server
 	log.Println("Starting Go AdTech Receiver on port 8080...")
-	router.Run(":8080")
+	if err := router.Run(":8080"); err != nil {
+		log.Fatalf("Go receiver stopped: %v", err)
+	}
+}
+
+func checkHealth(endpoint string) error {
+	client := http.Client{Timeout: 3 * time.Second}
+	response, err := client.Get(endpoint)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("unexpected HTTP status: %s", response.Status)
+	}
+
+	return nil
 }
