@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::env;
 use std::hash::{Hash, Hasher};
+use std::io::{self, BufRead, BufReader, Write};
+use std::net::{SocketAddr, TcpStream};
 use std::num::NonZeroUsize;
 use std::time::Duration;
 
@@ -395,9 +397,48 @@ async fn metrics() -> impl Responder {
         .body(buffer)
 }
 
+fn is_healthy_status_line(status_line: &str) -> bool {
+    status_line
+        .split_ascii_whitespace()
+        .nth(1)
+        .and_then(|status| status.parse::<u16>().ok())
+        .is_some_and(|status| (200..300).contains(&status))
+}
+
+fn check_health(address: SocketAddr) -> io::Result<()> {
+    let timeout = Duration::from_secs(3);
+    let mut stream = TcpStream::connect_timeout(&address, timeout)?;
+    stream.set_read_timeout(Some(timeout))?;
+    stream.set_write_timeout(Some(timeout))?;
+    stream.write_all(b"GET /health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")?;
+
+    let mut status_line = String::new();
+    BufReader::new(stream).read_line(&mut status_line)?;
+    if is_healthy_status_line(&status_line) {
+        Ok(())
+    } else {
+        Err(io::Error::other(format!(
+            "unexpected HTTP status: {}",
+            status_line.trim()
+        )))
+    }
+}
+
 // --- Main Application Entry Point ---
+fn main() -> io::Result<()> {
+    if env::args().nth(1).as_deref() == Some("healthcheck") {
+        return check_health(
+            "127.0.0.1:8080"
+                .parse()
+                .expect("health-check address is valid"),
+        );
+    }
+
+    run_server()
+}
+
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn run_server() -> io::Result<()> {
     // Get Kafka URL from environment or use a default
     let kafka_url =
         env::var("KAFKA_BOOTSTRAP_SERVERS").unwrap_or_else(|_| "localhost:9092".to_string());
@@ -468,6 +509,16 @@ async fn main() -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn health_status_accepts_only_success_responses() {
+        assert!(is_healthy_status_line("HTTP/1.1 200 OK\r\n"));
+        assert!(is_healthy_status_line("HTTP/1.1 204 No Content\r\n"));
+        assert!(!is_healthy_status_line(
+            "HTTP/1.1 503 Service Unavailable\r\n"
+        ));
+        assert!(!is_healthy_status_line("not-http"));
+    }
 
     #[test]
     fn request_with_site_or_app_is_valid() {
