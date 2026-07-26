@@ -1,24 +1,18 @@
 # --- Stage 1: Build the Rust application ---
 FROM rust:1.96-trixie AS builder
 
-# Install build dependencies for rdkafka
-RUN apt-get update && apt-get install -y build-essential librdkafka-dev pkg-config && rm -rf /var/lib/apt/lists/*
-
-# Create a new empty shell project
 WORKDIR /usr/src/app
 COPY . .
 
-# Build the application in release mode using the committed application lockfile.
+# rust-rdkafka builds and statically links its bundled librdkafka by default.
 RUN cargo build --release --locked
 
-# --- Stage 2: Create the final, smaller image ---
-FROM debian:13-slim
+FROM gcr.io/distroless/cc-debian13:nonroot
 
-# Install wget for health checks
-RUN apt-get update && apt-get install -y wget --no-install-recommends && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
 
-# Copy the compiled binary from the builder stage
-COPY --from=builder /usr/src/app/target/release/rust-receiver /usr/local/bin/rust-receiver
+COPY --from=builder --chown=nonroot:nonroot /usr/src/app/target/release/rust-receiver /app/rust-receiver
 
-# Set the entrypoint for the container
-CMD ["rust-receiver"]
+EXPOSE 8080
+
+ENTRYPOINT ["/app/rust-receiver"]
