@@ -1,4 +1,4 @@
-FROM maven:3.9.11-eclipse-temurin-25 AS build
+FROM maven:3.9.11-eclipse-temurin-21 AS build
 WORKDIR /workspace
 
 COPY pom.xml .
@@ -19,15 +19,13 @@ RUN for attempt in 1 2 3; do \
     done; \
     exit 1
 
-FROM eclipse-temurin:25-jre
+FROM gcr.io/distroless/java21-debian12:nonroot
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends wget \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=build /workspace/target/spring-receiver-*.jar /app/app.jar
+COPY --from=build --chown=nonroot:nonroot /workspace/target/spring-receiver-*.jar /app/app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["sh", "-c", "java $JAVA_TOOL_OPTIONS -jar /app/app.jar"]
+# Note: Distroless has no shell
+# Health checks must be done via HTTP from outside the container
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

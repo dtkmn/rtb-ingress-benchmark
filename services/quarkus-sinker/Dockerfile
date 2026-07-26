@@ -8,7 +8,8 @@
 ####
 
 # Stage 1: Build the application with Maven
-FROM registry.access.redhat.com/ubi9/openjdk-25:1.24 AS builder
+# Using Java 21 to match runtime stage (distroless uses Java 21)
+FROM registry.access.redhat.com/ubi9/openjdk-21:1.24 AS builder
 
 USER root
 
@@ -32,10 +33,9 @@ COPY src ./src
 RUN ./mvnw package -DskipTests -B
 
 # Stage 2: Create the runtime image
-FROM eclipse-temurin:25-jre-alpine
-
-# Install wget for health checks and libstdc++ for RocksDB (required by Kafka Streams)
-RUN apk add --no-cache wget libstdc++
+# Using Distroless for minimal attack surface and fewer CVEs
+# Note: gcr.io/distroless/java21-debian12 includes libstdc++ needed for RocksDB/Kafka Streams
+FROM gcr.io/distroless/java21-debian12:nonroot
 
 ENV LANGUAGE='en_US:en'
 
@@ -48,8 +48,9 @@ COPY --from=builder /build/target/quarkus-app/app/ /deployments/app/
 COPY --from=builder /build/target/quarkus-app/quarkus/ /deployments/quarkus/
 
 EXPOSE 8080
-USER 1000
+# Already running as nonroot user in distroless
 ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
 ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
 
+# Note: Distroless has no shell, so use direct Java execution
 ENTRYPOINT ["java", "-jar", "/deployments/quarkus-run.jar"]
