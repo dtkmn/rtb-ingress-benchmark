@@ -114,7 +114,7 @@
                             <rules>
                                 <requireJavaVersion>
                                     <version>[25,26)</version>
-                                    <message>This benchmark build requires JDK 25. Run `sdk env` from the repository root or set JAVA_HOME to a JDK 25 install.</message>
+                                    <message>This benchmark build requires JDK 25 (LTS). Run `sdk env` from the repository root or set JAVA_HOME to a JDK 25 install.</message>
                                 </requireJavaVersion>
                             </rules>
                         </configuration>

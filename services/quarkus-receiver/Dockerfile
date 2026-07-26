@@ -8,6 +8,7 @@
 ####
 
 # Stage 1: Build the application with Maven
+# Using Java 25 (LTS) for both build and runtime
 FROM registry.access.redhat.com/ubi9/openjdk-25:1.24 AS builder
 
 USER root
@@ -32,10 +33,8 @@ COPY src ./src
 RUN ./mvnw package -DskipTests -B
 
 # Stage 2: Create the runtime image
-FROM eclipse-temurin:25-jre-alpine
-
-# Install wget for health checks
-RUN apk add --no-cache wget
+# Using Distroless Java 25 (LTS) on Debian 13 for minimal attack surface and fewer CVEs
+FROM gcr.io/distroless/java25-debian13:nonroot
 
 ENV LANGUAGE='en_US:en'
 
@@ -48,7 +47,9 @@ COPY --from=builder /build/target/quarkus-app/app/ /deployments/app/
 COPY --from=builder /build/target/quarkus-app/quarkus/ /deployments/quarkus/
 
 EXPOSE 8080
-USER 1000
+# Already running as nonroot user in distroless
 ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
 
-ENTRYPOINT ["sh", "-c", "exec java ${JAVA_OPTS:-} -Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -jar ${JAVA_APP_JAR}"]
+# Note: Distroless has no shell, so use direct Java execution
+# Health checks must be done via HTTP from outside the container
+ENTRYPOINT ["java", "-Dquarkus.http.host=0.0.0.0", "-Djava.util.logging.manager=org.jboss.logmanager.LogManager", "-jar", "/deployments/quarkus-run.jar"]
