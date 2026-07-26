@@ -1,11 +1,22 @@
-FROM node:26.5.0-alpine3.24
+FROM node:26.5.0-bookworm-slim AS dependencies
+
+ENV NODE_ENV=production
+
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-COPY src src
+FROM gcr.io/distroless/nodejs26-debian13:nonroot
+
+ENV NODE_ENV=production
+
+WORKDIR /app
+
+COPY --from=dependencies --chown=nonroot:nonroot /app/node_modules ./node_modules
+COPY --chown=nonroot:nonroot package.json ./
+COPY --chown=nonroot:nonroot src ./src
 
 EXPOSE 8080
 
-CMD ["node", "src/server.js"]
+CMD ["src/server.js"]

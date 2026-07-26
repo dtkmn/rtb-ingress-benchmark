@@ -14,6 +14,7 @@ from app.config import (
 )
 from app.kafka import PublishBackpressureError, PublishUnavailableError
 from app.main import create_app
+from app.server import worker_count
 
 
 class StubPublisher:
@@ -47,6 +48,15 @@ class StubPublisher:
         )
         if self.error is not None:
             raise self.error
+
+
+def test_worker_count_defaults_invalid_values_to_one() -> None:
+    assert worker_count(None) == 1
+    assert worker_count("") == 1
+    assert worker_count("invalid") == 1
+    assert worker_count("0") == 1
+    assert worker_count("-1") == 1
+    assert worker_count("2") == 2
 
 
 def test_http_only_accepts_without_publisher() -> None:

@@ -16,18 +16,14 @@ COPY internal/ ./internal
 
 # Build the application, creating a static binary
 # CGO_ENABLED=0 is critical for creating a static binary that
-# can run in a minimal 'alpine' or 'scratch' image.
-RUN CGO_ENABLED=0 go build -o /app/receiver ./cmd/receiver/main.go
+# can run in a distroless static image.
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /app/receiver ./cmd/receiver/main.go
 
 # --- Stage 2: Final Image ---
-# Use a minimal Alpine image for the final, tiny container
-FROM alpine:3.24
-
-# Install wget for health checks
-RUN apk add --no-cache wget
+FROM gcr.io/distroless/static-debian13:nonroot
 
 # Only copy the compiled binary from the 'builder' stage
-COPY --from=builder /app/receiver /receiver
+COPY --from=builder --chown=nonroot:nonroot /app/receiver /receiver
 
 # Expose port 8080 (which 'main.go' listens on)
 EXPOSE 8080
