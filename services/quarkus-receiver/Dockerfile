@@ -1,13 +1,3 @@
-####
-# Multi-stage Dockerfile for Quarkus Receiver (JVM mode)
-# This Dockerfile builds the application and creates the container image in one step
-#
-# Usage:
-# docker build -t quarkus-receiver:benchmark-local .
-# docker run -i --rm -p 8080:8080 quarkus-receiver
-####
-
-# Stage 1: Build the application with Maven
 # Using Java 25 (LTS) for both build and runtime
 FROM registry.access.redhat.com/ubi9/openjdk-25:1.24 AS builder
 
@@ -32,7 +22,6 @@ COPY src ./src
 # Build the application
 RUN ./mvnw package -DskipTests -B
 
-# Stage 2: Create the runtime image
 # Using Distroless Java 25 (LTS) on Debian 13 for minimal attack surface and fewer CVEs
 FROM gcr.io/distroless/java25-debian13:nonroot
 
