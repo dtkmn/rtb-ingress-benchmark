@@ -48,6 +48,8 @@ spec:
         - name: quarkus-receiver
           image: {{ .Values.quarkusReceiver.image }}
           imagePullPolicy: {{ .Values.applicationImagePullPolicy }}
+          securityContext:
+            {{- include "rtb-ingress-benchmark.containerSecurityContext" .Values.quarkusReceiver.containerSecurityContext | nindent 12 }}
           ports:
             - containerPort: 8080
               name: http

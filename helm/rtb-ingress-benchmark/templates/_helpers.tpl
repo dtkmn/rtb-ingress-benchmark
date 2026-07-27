@@ -49,6 +49,22 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Apply the least-privilege controls required by every workload container.
+The numeric user (and optional group) remain image-specific and configurable.
+*/}}
+{{- define "rtb-ingress-benchmark.containerSecurityContext" -}}
+allowPrivilegeEscalation: false
+capabilities:
+  drop:
+    - ALL
+runAsNonRoot: true
+runAsUser: {{ required "containerSecurityContext.runAsUser is required" .runAsUser }}
+{{- if hasKey . "runAsGroup" }}
+runAsGroup: {{ .runAsGroup }}
+{{- end }}
+{{- end }}
+
+{{/*
 Create the name of the service account to use
 */}}
 {{- define "rtb-ingress-benchmark.serviceAccountName" -}}

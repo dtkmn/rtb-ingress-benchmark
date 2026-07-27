@@ -63,10 +63,14 @@ spec:
       labels:
         app: postgresql
     spec:
+      securityContext:
+        {{- toYaml .Values.postgresql.podSecurityContext | nindent 8 }}
       containers:
         - name: postgresql
           image: {{ .Values.postgresql.image }}
           imagePullPolicy: {{ .Values.infrastructureImagePullPolicy }}
+          securityContext:
+            {{- include "rtb-ingress-benchmark.containerSecurityContext" .Values.postgresql.containerSecurityContext | nindent 12 }}
           ports:
             - containerPort: 5432
               name: postgres
