@@ -15,6 +15,12 @@ applicationImagePullPolicy: Never
 kafka:
   enabled: true
   image: confluentinc/cp-kafka:8.2.0
+  containerSecurityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+  podSecurityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
   replicas: 1
   port: 9092
   resources:
@@ -33,6 +39,12 @@ kafka:
 postgresql:
   enabled: true
   image: pgvector/pgvector:0.8.2-pg17-trixie
+  containerSecurityContext:
+    runAsUser: 999
+    runAsGroup: 999
+  podSecurityContext:
+    fsGroup: 999
+    fsGroupChangePolicy: OnRootMismatch
   replicas: 1
   port: 5432
   database: adtech
@@ -54,6 +66,12 @@ postgresql:
 prometheus:
   enabled: true
   image: prom/prometheus:v3.8.1
+  containerSecurityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
+  podSecurityContext:
+    fsGroup: 65534
+    fsGroupChangePolicy: OnRootMismatch
   replicas: 1
   port: 9090
   resources:
@@ -72,6 +90,11 @@ prometheus:
 grafana:
   enabled: true
   image: grafana/grafana:13.0.1
+  containerSecurityContext:
+    runAsUser: 472
+  podSecurityContext:
+    fsGroup: 472
+    fsGroupChangePolicy: OnRootMismatch
   replicas: 1
   port: 3000
   username: admin
@@ -92,6 +115,8 @@ grafana:
 jaeger:
   enabled: true
   image: jaegertracing/all-in-one:1.51
+  containerSecurityContext:
+    runAsUser: 10001
   replicas: 1
   port: 16686
   resources:
@@ -106,6 +131,8 @@ jaeger:
 quarkusReceiver:
   enabled: true
   image: quarkus-receiver:benchmark-local
+  containerSecurityContext:
+    runAsUser: 65532
   replicas: 3
   port: 8070
   resources:
@@ -126,6 +153,8 @@ quarkusReceiver:
 quarkusReceiverNative:
   enabled: true
   image: quarkus-receiver-native:benchmark-local
+  containerSecurityContext:
+    runAsUser: 1001
   replicas: 3
   port: 8071
   resources:
@@ -146,6 +175,8 @@ quarkusReceiverNative:
 goReceiver:
   enabled: true
   image: go-receiver:benchmark-local
+  containerSecurityContext:
+    runAsUser: 65532
   replicas: 3
   port: 8072
   resources:
@@ -166,6 +197,8 @@ goReceiver:
 rustReceiver:
   enabled: true
   image: rust-receiver:benchmark-local
+  containerSecurityContext:
+    runAsUser: 65532
   replicas: 3
   port: 8073
   resources:
@@ -186,6 +219,8 @@ rustReceiver:
 quarkusSinker:
   enabled: true
   image: quarkus-sinker:benchmark-local
+  containerSecurityContext:
+    runAsUser: 65532
   replicas: 1
   port: 8074
   resources:

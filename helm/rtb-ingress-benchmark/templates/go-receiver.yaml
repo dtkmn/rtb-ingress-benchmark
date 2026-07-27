@@ -48,6 +48,8 @@ spec:
         - name: go-receiver
           image: {{ .Values.goReceiver.image }}
           imagePullPolicy: {{ .Values.applicationImagePullPolicy }}
+          securityContext:
+            {{- include "rtb-ingress-benchmark.containerSecurityContext" .Values.goReceiver.containerSecurityContext | nindent 12 }}
           ports:
             - containerPort: 8080
               name: http

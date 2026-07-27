@@ -20,6 +20,8 @@ spec:
       containers:
       - name: kafka-topic-creator
         image: {{ .Values.kafka.image }}
+        securityContext:
+          {{- include "rtb-ingress-benchmark.containerSecurityContext" .Values.kafka.containerSecurityContext | nindent 10 }}
         command:
           - /bin/bash
           - -c

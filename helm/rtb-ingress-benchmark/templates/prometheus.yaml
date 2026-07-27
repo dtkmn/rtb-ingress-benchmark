@@ -143,10 +143,14 @@ spec:
         app: prometheus
     spec:
       serviceAccountName: prometheus
+      securityContext:
+        {{- toYaml .Values.prometheus.podSecurityContext | nindent 8 }}
       containers:
         - name: prometheus
           image: {{ .Values.prometheus.image }}
           imagePullPolicy: {{ .Values.infrastructureImagePullPolicy }}
+          securityContext:
+            {{- include "rtb-ingress-benchmark.containerSecurityContext" .Values.prometheus.containerSecurityContext | nindent 12 }}
           args:
             - '--config.file=/etc/prometheus/prometheus.yml'
             - '--storage.tsdb.path=/prometheus'

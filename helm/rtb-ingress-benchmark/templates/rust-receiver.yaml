@@ -48,6 +48,8 @@ spec:
         - name: rust-receiver
           image: {{ .Values.rustReceiver.image }}
           imagePullPolicy: {{ .Values.applicationImagePullPolicy }}
+          securityContext:
+            {{- include "rtb-ingress-benchmark.containerSecurityContext" .Values.rustReceiver.containerSecurityContext | nindent 12 }}
           ports:
             - containerPort: 8080
               name: http

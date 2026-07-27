@@ -41,10 +41,14 @@ spec:
       labels:
         app: kafka
     spec:
+      securityContext:
+        {{- toYaml .Values.kafka.podSecurityContext | nindent 8 }}
       containers:
         - name: kafka
           image: {{ .Values.kafka.image }}
           imagePullPolicy: {{ .Values.infrastructureImagePullPolicy }}
+          securityContext:
+            {{- include "rtb-ingress-benchmark.containerSecurityContext" .Values.kafka.containerSecurityContext | nindent 12 }}
           ports:
             - containerPort: 9092
               name: broker

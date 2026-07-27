@@ -48,6 +48,8 @@ spec:
         - name: quarkus-sinker
           image: {{ .Values.quarkusSinker.image }}
           imagePullPolicy: {{ .Values.applicationImagePullPolicy }}
+          securityContext:
+            {{- include "rtb-ingress-benchmark.containerSecurityContext" .Values.quarkusSinker.containerSecurityContext | nindent 12 }}
           ports:
             - containerPort: 8080
               name: http

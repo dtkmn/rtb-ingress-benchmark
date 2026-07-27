@@ -64,6 +64,8 @@ spec:
         - name: jaeger
           image: {{ .Values.jaeger.image }}
           imagePullPolicy: {{ .Values.infrastructureImagePullPolicy }}
+          securityContext:
+            {{- include "rtb-ingress-benchmark.containerSecurityContext" .Values.jaeger.containerSecurityContext | nindent 12 }}
           env:
             - name: COLLECTOR_OTLP_ENABLED
               value: "true"
