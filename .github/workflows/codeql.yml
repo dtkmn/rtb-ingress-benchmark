@@ -59,7 +59,7 @@ jobs:
 
       - name: Set up Java
         if: matrix.language == 'java-kotlin'
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v5.6.0
         with:
           distribution: temurin
           java-version-file: .java-version
@@ -73,7 +73,7 @@ jobs:
           cache-dependency-path: services/go-receiver/go.sum
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@v4.37.3
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -93,6 +93,6 @@ jobs:
         run: go build ./...
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@v4.37.3
         with:
           category: "/language:${{ matrix.language }}"
