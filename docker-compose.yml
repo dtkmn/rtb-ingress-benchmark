@@ -100,7 +100,7 @@ services:
       - prometheus
   
   postgres:
-    image: "pgvector/pgvector:0.8.5-pg17-trixie" # Use a pgvector-enabled image
+    image: "pgvector/pgvector:0.8.6-pg17-trixie" # Use a pgvector-enabled image
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: user
