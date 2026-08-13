@@ -1,5 +1,5 @@
 # --- Stage 1: Build the Rust application ---
-FROM rust:1.96-trixie AS builder
+FROM rust:1.97-trixie AS builder
 
 WORKDIR /usr/src/app
 COPY . .
