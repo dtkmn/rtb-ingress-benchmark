@@ -1,7 +1,7 @@
 # Build the virtual environment against the same Debian/Python ABI used by
 # the distroless runtime. The /usr/bin/python symlink ensures the virtualenv
 # resolves its interpreter correctly after it is copied into the final image.
-FROM python:3.13-slim-trixie AS builder
+FROM python:3.14-slim-trixie AS builder
 
 RUN ln -s /usr/local/bin/python /usr/bin/python \
     && /usr/bin/python -m venv /venv \
