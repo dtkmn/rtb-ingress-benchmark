@@ -48,7 +48,19 @@ jobs:
       - name: npm audit (high+)
         working-directory: services/node-receiver
         # "high" = high + critical; remove --audit-level to catch moderate too
-        run: npm audit --audit-level=high
+        # The npm registry's advisory endpoint occasionally returns 503s under
+        # load; retry a few times with backoff before treating it as a real
+        # failure so we don't gate PRs on registry flakiness.
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if npm audit --audit-level=high; then
+              exit 0
+            fi
+            echo "npm audit attempt ${attempt} failed, retrying in $((attempt * 10))s..."
+            sleep $((attempt * 10))
+          done
+          echo "npm audit failed after 5 attempts"
+          exit 1
 
       - uses: actions/setup-go@v7
         with:
