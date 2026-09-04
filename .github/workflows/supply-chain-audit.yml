@@ -13,7 +13,8 @@ on:
     paths:
       - 'services/**/package.json'
       - 'services/**/package-lock.json'
-      - 'services/**/requirements*.txt'
+      - 'services/**/pyproject.toml'
+      - 'services/**/uv.lock'
       - 'services/**/go.mod'
       - 'services/**/go.sum'
       - 'services/**/Cargo.toml'
@@ -44,14 +45,20 @@ jobs:
         working-directory: services/node-receiver
         run: npm ci --ignore-scripts
 
-      - name: npm audit (high+)
-        working-directory: services/node-receiver
-        # "high" = high + critical; remove --audit-level to catch moderate too
-        run: npm audit --audit-level=high
+      - name: OSV-Scanner (node-receiver)
+        # `npm audit` hits npm's own advisory bulk endpoint, which has proven
+        # unreliable (503s / hangs) even across retries. OSV-Scanner queries
+        # the OSV.dev database directly against package-lock.json instead,
+        # which is far more stable and doesn't depend on the npm registry at
+        # all for the vulnerability lookup.
+        uses: google/osv-scanner-action/osv-scanner-action@v2.2.2
+        with:
+          scan-args: |-
+            --lockfile=services/node-receiver/package-lock.json
 
       - uses: actions/setup-go@v7
         with:
-          go-version: '1.26.5'
+          go-version: '1.26.6'
           cache-dependency-path: services/go-receiver/go.sum
 
       - name: Install govulncheck
@@ -63,20 +70,37 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "0.9.6"
 
       - name: Install pip-audit
         # pip-audit is the PyPA-blessed tool; safety requires an API key since v3
         run: pip install pip-audit --quiet
 
+      - name: Export locked requirements
+        working-directory: services/python-receiver
+        # --no-emit-project excludes the local package itself (whose
+        # requires-python metadata may differ from the audit runner's
+        # interpreter) — we only want to audit its third-party dependencies.
+        run: uv export --frozen --no-hashes --no-editable --no-emit-project -o requirements-audit.txt
+
       - name: pip-audit
         working-directory: services/python-receiver
-        run: pip-audit -r requirements.txt
+        run: pip-audit -r requirements-audit.txt
 
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked --quiet
 
       - name: cargo audit
         working-directory: services/rust-receiver
-        # --deny warnings turns advisories into a hard failure
-        run: cargo audit --deny warnings
+        # --deny warnings turns advisories into a hard failure.
+        # RUSTSEC-2026-0258 (h2 unbounded empty DATA frames) is ignored:
+        # h2 0.3.x is pulled transitively via actix-http, which has not yet
+        # migrated to h2 0.4.x (the only line with a fix) even at its latest
+        # release (3.13.5). No upgrade path exists upstream as of writing.
+        # Remove this ignore once actix-http bumps its h2 dependency.
+        run: cargo audit --deny warnings --ignore RUSTSEC-2026-0258

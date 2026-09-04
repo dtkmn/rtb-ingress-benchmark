@@ -59,7 +59,7 @@ updates:
       rust-receiver-all:
         patterns: ["*"]
 
-  - package-ecosystem: "pip"
+  - package-ecosystem: "uv"
     directory: "/services/python-receiver"
     schedule:
       interval: "weekly"
