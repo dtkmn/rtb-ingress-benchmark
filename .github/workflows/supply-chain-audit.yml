@@ -13,7 +13,8 @@ on:
     paths:
       - 'services/**/package.json'
       - 'services/**/package-lock.json'
-      - 'services/**/requirements*.txt'
+      - 'services/**/pyproject.toml'
+      - 'services/**/uv.lock'
       - 'services/**/go.mod'
       - 'services/**/go.sum'
       - 'services/**/Cargo.toml'
@@ -65,13 +66,22 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "0.9.6"
+
       - name: Install pip-audit
         # pip-audit is the PyPA-blessed tool; safety requires an API key since v3
         run: pip install pip-audit --quiet
 
+      - name: Export locked requirements
+        working-directory: services/python-receiver
+        run: uv export --frozen --no-hashes --no-editable -o requirements-audit.txt
+
       - name: pip-audit
         working-directory: services/python-receiver
-        run: pip-audit -r requirements.txt
+        run: pip-audit -r requirements-audit.txt
 
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked --quiet
