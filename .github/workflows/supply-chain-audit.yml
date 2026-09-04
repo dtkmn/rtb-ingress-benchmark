@@ -97,5 +97,10 @@ jobs:
 
       - name: cargo audit
         working-directory: services/rust-receiver
-        # --deny warnings turns advisories into a hard failure
-        run: cargo audit --deny warnings
+        # --deny warnings turns advisories into a hard failure.
+        # RUSTSEC-2026-0258 (h2 unbounded empty DATA frames) is ignored:
+        # h2 0.3.x is pulled transitively via actix-http, which has not yet
+        # migrated to h2 0.4.x (the only line with a fix) even at its latest
+        # release (3.13.5). No upgrade path exists upstream as of writing.
+        # Remove this ignore once actix-http bumps its h2 dependency.
+        run: cargo audit --deny warnings --ignore RUSTSEC-2026-0258
