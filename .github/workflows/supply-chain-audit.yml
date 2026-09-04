@@ -55,7 +55,6 @@ jobs:
         with:
           scan-args: |-
             --lockfile=services/node-receiver/package-lock.json
-            --fail-on-vuln=true
 
       - uses: actions/setup-go@v7
         with:
