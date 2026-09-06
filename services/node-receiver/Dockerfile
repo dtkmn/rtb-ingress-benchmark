@@ -1,4 +1,4 @@
-FROM node:26.5.0-bookworm-slim AS dependencies
+FROM node:26.8.1-bookworm-slim AS dependencies
 
 ENV NODE_ENV=production
 
