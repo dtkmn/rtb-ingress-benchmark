@@ -51,7 +51,7 @@ jobs:
         # the OSV.dev database directly against package-lock.json instead,
         # which is far more stable and doesn't depend on the npm registry at
         # all for the vulnerability lookup.
-        uses: google/osv-scanner-action/osv-scanner-action@v2.2.2
+        uses: google/osv-scanner-action/osv-scanner-action@v2.5.1
         with:
           scan-args: |-
             --lockfile=services/node-receiver/package-lock.json
@@ -73,7 +73,7 @@ jobs:
           python-version: "3.14"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           version: "0.9.6"
 
