@@ -1,8 +1,5 @@
-# Reuse the same interpreter and Debian ABI in both stages. Debian 13's
-# distroless Python is 3.13, but this application requires Python 3.14.
-FROM python:3.14.7-slim-trixie AS python-base
-
-FROM python-base AS builder
+# Match the Python minor version and Debian ABI supplied by distroless.
+FROM python:3.13.15-slim-trixie AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.19 /uv /uvx /usr/local/bin/
 
@@ -11,13 +8,16 @@ ENV UV_PYTHON_DOWNLOADS=never \
 
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
+# Point the copied venv at distroless's interpreter and standard library.
 RUN uv sync \
     --frozen \
     --no-dev \
     --no-install-project \
-    --python /usr/local/bin/python
+    --python /usr/local/bin/python \
+    && ln -sf /usr/bin/python3.13 /venv/bin/python \
+    && sed -i 's|^home = .*|home = /usr/bin|' /venv/pyvenv.cfg
 
-FROM python-base AS runtime
+FROM gcr.io/distroless/python3-debian13:nonroot AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
