@@ -379,6 +379,8 @@ if [[ "$BENCHMARK_VALIDATE_ONLY" == "1" ]]; then
   exit 0
 fi
 
+command -v curl >/dev/null 2>&1 || fail_guardrail "curl is required for receiver readiness checks from the benchmark host"
+
 mkdir -p "$OUT_DIR"
 
 cleanup() {
@@ -419,6 +421,50 @@ wait_for_compose_health() {
 
   echo "Timed out waiting for $service to become healthy" >&2
   docker compose logs "$service" >&2 || true
+  return 1
+}
+
+wait_for_receiver_ready() {
+  local service="$1"
+  local base_url="$2"
+  local health_url="$base_url/health"
+  case "$service" in
+    quarkus-receiver|quarkus-receiver-native) health_url="$base_url/q/health/ready" ;;
+  esac
+
+  local deadline=$((SECONDS + 180))
+  local last_response="receiver container has not started"
+  while (( SECONDS < deadline )); do
+    local container_id
+    container_id="$(docker compose ps -a -q "$service")"
+    if [[ -n "$container_id" ]]; then
+      local status
+      status="$(docker inspect --format '{{.State.Status}}' "$container_id")"
+      case "$status" in
+        exited|dead)
+          echo "Receiver $service exited before HTTP readiness (container status: $status)" >&2
+          docker compose logs --tail 100 "$service" >&2 || true
+          return 1
+          ;;
+        running)
+          # Probe the published port used by k6. Distroless images do not need
+          # an HTTP client inside the container for this readiness check.
+          if last_response="$(curl --silent --show-error --noproxy '*' \
+            --connect-timeout 2 --max-time 5 --output /dev/null \
+            --write-out '%{http_code}' "$health_url" 2>&1)"; then
+            case "$last_response" in
+              2[0-9][0-9]) return 0 ;;
+            esac
+          fi
+          ;;
+        *) last_response="container status: $status" ;;
+      esac
+    fi
+    sleep 2
+  done
+
+  echo "Timed out waiting for $service HTTP readiness at $health_url; last response: $last_response" >&2
+  docker compose logs --tail 100 "$service" >&2 || true
   return 1
 }
 
@@ -581,7 +627,7 @@ for service in "${SERVICES[@]}"; do
   else
     docker compose up -d --no-deps "$service"
   fi
-  wait_for_compose_health "$service"
+  wait_for_receiver_ready "$service" "$base_url"
   apply_cpuset_if_requested "$service" "$BENCHMARK_RECEIVER_CPUSET"
   capture_container_inspect "$service"
 

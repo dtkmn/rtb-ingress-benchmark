@@ -24,7 +24,7 @@ const USER_AGENTS = [
 
 function buildOptions() {
     const base = {
-        summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'max'],
+        summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
         thresholds: {
             checks: ['rate>0.99'],
             http_req_failed: ['rate<0.01'],
