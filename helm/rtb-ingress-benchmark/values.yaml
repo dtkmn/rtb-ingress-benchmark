@@ -14,7 +14,7 @@ applicationImagePullPolicy: Never
 # Kafka configuration (KRaft mode - no ZooKeeper needed!)
 kafka:
   enabled: true
-  image: confluentinc/cp-kafka:8.2.0
+  image: confluentinc/cp-kafka:8.3.2
   containerSecurityContext:
     runAsUser: 1000
     runAsGroup: 1000
@@ -38,7 +38,7 @@ kafka:
 # PostgreSQL configuration
 postgresql:
   enabled: true
-  image: pgvector/pgvector:0.8.2-pg17-trixie
+  image: pgvector/pgvector:0.8.6-pg17-trixie
   containerSecurityContext:
     runAsUser: 999
     runAsGroup: 999
@@ -65,7 +65,7 @@ postgresql:
 # Prometheus configuration
 prometheus:
   enabled: true
-  image: prom/prometheus:v3.8.1
+  image: prom/prometheus:v3.15.0
   containerSecurityContext:
     runAsUser: 65534
     runAsGroup: 65534
@@ -89,7 +89,7 @@ prometheus:
 # Grafana configuration
 grafana:
   enabled: true
-  image: grafana/grafana:13.0.1
+  image: grafana/grafana:13.2.2
   containerSecurityContext:
     runAsUser: 472
   podSecurityContext:
@@ -114,7 +114,7 @@ grafana:
 # Jaeger configuration
 jaeger:
   enabled: true
-  image: jaegertracing/all-in-one:1.51
+  image: jaegertracing/jaeger:2.21.0
   containerSecurityContext:
     runAsUser: 10001
   replicas: 1

@@ -66,9 +66,8 @@ spec:
           imagePullPolicy: {{ .Values.infrastructureImagePullPolicy }}
           securityContext:
             {{- include "rtb-ingress-benchmark.containerSecurityContext" .Values.jaeger.containerSecurityContext | nindent 12 }}
-          env:
-            - name: COLLECTOR_OTLP_ENABLED
-              value: "true"
+          # Jaeger v2's default all-in-one configuration enables OTLP and
+          # in-memory storage without the v1 COLLECTOR_OTLP_ENABLED variable.
           ports:
             - containerPort: 16686
               name: jaeger-ui
@@ -76,8 +75,6 @@ spec:
               name: otlp-grpc
             - containerPort: 4318
               name: otlp-http
-            - containerPort: 14250
-              name: grpc
           resources:
             {{- toYaml .Values.jaeger.resources | nindent 12 }}
           livenessProbe:

@@ -44,6 +44,8 @@ site/dist/
 node_modules/
 __pycache__/
 *.py[cod]
+requirements-audit.txt
+.venv/
 
 # Plugin directory
 /.quarkus/cli/plugins/

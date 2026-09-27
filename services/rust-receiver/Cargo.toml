@@ -4,10 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-actix-web = "4.15.0"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.150"
+# The server uses plaintext HTTP/1.1 via HttpServer::bind. Keep the other
+# defaults, excluding unused HTTP/2 and its vulnerable h2 0.3 dependency
+# (RUSTSEC-2026-0258).
+actix-web = { version = "4.15.0", default-features = false, features = ["macros", "compress-brotli", "compress-gzip", "compress-zstd", "cookies", "unicode", "compat", "ws"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
 rdkafka = "0.39.0"
-tokio = { version = "1.52.3", features = ["full"] }
+tokio = { version = "1.53.1", features = ["full"] }
 prometheus = "0.14"
 lazy_static = "1.5"

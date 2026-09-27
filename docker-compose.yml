@@ -11,7 +11,7 @@ services:
   # Kafka in KRaft mode (no ZooKeeper needed!)
   kafka:
     <<: *benchmark-kafka
-    image: confluentinc/cp-kafka:8.3.1
+    image: confluentinc/cp-kafka:8.3.2
     ports:
       - "9092:9092"
     environment:
@@ -78,7 +78,7 @@ services:
 
   # --- NEW OBSERVABILITY STACK ---
   prometheus:
-    image: prom/prometheus:v3.14.0
+    image: prom/prometheus:v3.15.0
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     # Needed for host.docker.internal on Linux, harmless on Mac
@@ -88,7 +88,7 @@ services:
       - "9090:9090"
 
   grafana:
-    image: grafana/grafana:13.2.1
+    image: grafana/grafana:13.2.2
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
@@ -137,18 +137,13 @@ services:
       - BENCHMARK_KAFKA_RETRY_BACKOFF_MS=${BENCHMARK_KAFKA_RETRY_BACKOFF_MS:-100}
       - BENCHMARK_KAFKA_PRODUCER_POOL_SIZE=${BENCHMARK_KAFKA_PRODUCER_POOL_SIZE:-1}
       - QUARKUS_HTTP_IO_THREADS=${QUARKUS_HTTP_IO_THREADS:-2}
-      - JAVA_OPTS=-Xmx512m -Xms128m
+      - JAVA_TOOL_OPTIONS=-Xmx512m -Xms128m
     ports:
       - "8070:8080"
     depends_on:
       kafka:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/q/health/ready"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+    # Health check is supplied by the image.
 
 
   # --- The Application (Native Version) ---
@@ -197,7 +192,7 @@ services:
       - DB_NAME=postgres
       - SINKER_DLQ_ENABLED=${SINKER_DLQ_ENABLED:-false}
       - KAFKA_DLQ_TOPIC=${KAFKA_DLQ_TOPIC:-bids-dlq}
-      - JAVA_OPTS=-Xmx512m -Xms128m
+      - JAVA_TOOL_OPTIONS=-Xmx512m -Xms128m
     ports:
       - "8074:8080"
     depends_on:
@@ -205,12 +200,7 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/q/health/ready"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+    # Health check is supplied by the image.
 
   go-receiver:
     <<: *benchmark-receiver
@@ -294,7 +284,7 @@ services:
       kafka:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "/usr/bin/python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      test: ["CMD", "/venv/bin/python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -324,12 +314,7 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "-", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    # Health check is supplied by the image.
 
   spring-virtual-receiver:
     <<: *benchmark-receiver
@@ -354,12 +339,7 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "-", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    # Health check is supplied by the image.
 
   node-receiver:
     <<: *benchmark-receiver

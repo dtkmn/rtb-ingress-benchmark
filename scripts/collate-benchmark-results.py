@@ -81,6 +81,17 @@ def metric_value(metrics: dict, name: str, key: str, default: float = 0.0) -> fl
     return float(value)
 
 
+def rate_metric_value(metrics: dict, name: str, default: float = 0.0) -> float:
+    # Legacy --summary-export uses `value`; handleSummary uses `values.rate`.
+    metric = metrics.get(name, {})
+    values = metric.get("values", metric)
+    for key in ("rate", "value"):
+        value = values.get(key)
+        if value is not None:
+            return float(value)
+    return default
+
+
 def parse_percent(raw: str) -> float:
     return float(raw.strip().rstrip("%") or 0.0)
 
@@ -331,9 +342,9 @@ def service_run_rows(results_dir: Path) -> list[dict[str, float | int | str]]:
             "run": run,
             "http_reqs_count": metric_value(metrics, "http_reqs", "count"),
             "http_reqs_rate": metric_value(metrics, "http_reqs", "rate"),
-            "http_req_failed_rate": metric_value(metrics, "http_req_failed", "rate"),
-            "checks_rate": metric_value(metrics, "checks", "value"),
-            "valid_responses_rate": metric_value(metrics, "valid_responses", "value"),
+            "http_req_failed_rate": rate_metric_value(metrics, "http_req_failed"),
+            "checks_rate": rate_metric_value(metrics, "checks"),
+            "valid_responses_rate": rate_metric_value(metrics, "valid_responses"),
             "accepted_responses": metric_value(metrics, "accepted_responses", "count"),
             "filtered_responses": metric_value(metrics, "filtered_responses", "count"),
             "http_req_duration_avg_ms": metric_value(metrics, "http_req_duration", "avg"),
@@ -341,6 +352,13 @@ def service_run_rows(results_dir: Path) -> list[dict[str, float | int | str]]:
             "http_req_duration_p95_ms": metric_value(metrics, "http_req_duration", "p(95)"),
             "http_req_duration_max_ms": metric_value(metrics, "http_req_duration", "max"),
         }
+
+        duration_metric = metrics.get("http_req_duration", {})
+        duration_values = duration_metric.get("values", duration_metric)
+        for percentile, stat in (("p50", "med"), ("p99", "p(99)")):
+            value = duration_values.get(stat)
+            if value is not None:
+                row[f"http_req_duration_{percentile}_ms"] = float(value)
 
         receiver_limits = inspect_limits(results_dir / f"{service}-container-inspect.json")
         receiver_stats = summarize_stats(results_dir / f"{service}-run-{run:02d}-receiver-stats.ndjson")
@@ -678,20 +696,23 @@ def write_summary_markdown(
             "- raw `req/s avg` is a throughput sanity check, not the primary ranking.",
             "- p95/p99 latency and non-2xx/non-204 responses are veto metrics; an efficient result with bad tail latency or errors is not a win.",
             "",
-            "| rank | service | runs | req/s / measured stack avg core | req/s avg | p95 avg (ms) | req/s / measured stack avg GiB | req/s / receiver CPU limit | req/s / receiver GiB limit |",
-            "|---:|---|---:|---:|---:|---:|---:|---:|---:|",
+            "| rank | service | runs | req/s / measured stack avg core | req/s avg | p50 avg (ms) | p95 avg (ms) | p99 avg (ms) | failed requests | req/s / measured stack avg GiB | req/s / receiver CPU limit | req/s / receiver GiB limit |",
+            "|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
 
     for rank, row in enumerate(sorted_rows, start=1):
         lines.append(
-            "| {rank} | {service} | {runs} | {stack_cpu_avg} | {reqs} | {p95} | {stack_mem_avg} | {receiver_cpu_limit} | {receiver_mem_limit} |".format(
+            "| {rank} | {service} | {runs} | {stack_cpu_avg} | {reqs} | {p50} | {p95} | {p99} | {failed} | {stack_mem_avg} | {receiver_cpu_limit} | {receiver_mem_limit} |".format(
                 rank=rank,
                 service=row["service"],
                 runs=int(row["runs"]),
                 stack_cpu_avg=format_float(row.get("http_reqs_per_stack_cpu_avg_core_avg")),
                 reqs=format_float(row.get("http_reqs_rate_avg")),
+                p50=format_float(row.get("http_req_duration_p50_ms_avg")),
                 p95=format_float(row.get("http_req_duration_p95_ms_avg")),
+                p99=format_float(row.get("http_req_duration_p99_ms_avg")),
+                failed=format_percent(row.get("http_req_failed_rate_avg")),
                 stack_mem_avg=format_float(row.get("http_reqs_per_stack_mem_avg_gib_avg")),
                 receiver_cpu_limit=format_float(row.get("http_reqs_per_receiver_cpu_limit_avg")),
                 receiver_mem_limit=format_float(row.get("http_reqs_per_receiver_mem_limit_gib_avg")),

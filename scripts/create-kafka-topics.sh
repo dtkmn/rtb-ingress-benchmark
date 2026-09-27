@@ -28,8 +28,15 @@ wait_for_kafka() {
 
 current_partition_count() {
   local topic="$1"
-  kafka-topics --bootstrap-server "${BOOTSTRAP_SERVER}" --describe --topic "${topic}" 2>/dev/null \
-    | awk -F'PartitionCount:' 'NR==1 { split($2, parts, " "); print parts[1] }'
+  local description
+  description="$(kafka-topics --bootstrap-server "${BOOTSTRAP_SERVER}" --describe --topic "${topic}")" || return
+  # Confluent 8.3's minimal image no longer includes awk.
+  if [[ "${description}" =~ PartitionCount:[[:space:]]*([0-9]+) ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+  else
+    echo "Unable to determine partition count for topic ${topic}" >&2
+    return 1
+  fi
 }
 
 configure_topic() {
