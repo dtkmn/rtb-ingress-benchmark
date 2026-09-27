@@ -13,13 +13,28 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.platform.version>3.39.4</quarkus.platform.version>
+        <quarkus.platform.version>3.39.5</quarkus.platform.version>
+        <lz4-java.version>1.12.0</lz4-java.version>
+        <zstd-jni.version>1.5.7-20</zstd-jni.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.6.0</surefire-plugin.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <!-- Security fixes newer than the platform BOM; remove once the BOM catches up.
+                 LZ4: GHSA-mcr4-qmvw-px4g, GHSA-343h-94h5-c4wr, GHSA-gm45-99xc-r7wv.
+                 Zstd: GHSA-8w96-r9r5-4j3r. -->
+            <dependency>
+                <groupId>at.yawk.lz4</groupId>
+                <artifactId>lz4-java</artifactId>
+                <version>${lz4-java.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.luben</groupId>
+                <artifactId>zstd-jni</artifactId>
+                <version>${zstd-jni.version}</version>
+            </dependency>
             <dependency>
                 <groupId>${quarkus.platform.group-id}</groupId>
                 <artifactId>${quarkus.platform.artifact-id}</artifactId>
@@ -167,6 +182,7 @@
                 <quarkus.package.jar.enabled>false</quarkus.package.jar.enabled>
                 <skipITs>false</skipITs>
                 <quarkus.native.enabled>true</quarkus.native.enabled>
+                <quarkus.config.locations>native-compatibility.properties</quarkus.config.locations>
             </properties>
         </profile>
     </profiles>

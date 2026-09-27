@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @QuarkusTest
 @QuarkusTestResource(value = KafkaCompanionResource.class, initArgs = {
-        @ResourceArg(name = "strimzi.kafka.image", value = "quay.io/strimzi-test-container/test-container:0.115.0-kafka-4.2.0"),
+        @ResourceArg(name = "strimzi.kafka.image", value = "quay.io/strimzi-test-container/test-container:0.117.0-kafka-4.3.1"),
         @ResourceArg(name = "kraft", value = "true")
 })
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)

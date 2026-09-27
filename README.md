@@ -238,6 +238,9 @@ docker-compose up quarkus-receiver kafka postgres
 ```
 
 ### Test the Endpoints
+
+The four JVM images retain their distroless Java base and include a pinned, standalone `httpcheck` binary from [Microcheck](https://github.com/tarampampam/microcheck). Their Dockerfiles define the health checks, so Docker Compose inherits them without Java helper classes or a shell. The probe checks the existing HTTP readiness endpoint; Kubernetes continues to use its own HTTP probes. Rebuild the images after changing their health-check configuration.
+
 ```bash
 # Test Quarkus JVM receiver
 curl -X POST http://localhost:8070/bid-request \
@@ -626,7 +629,34 @@ docker-compose build spring-receiver
 docker-compose build node-receiver
 ```
 
-## **11\. CI/CD**
+## **11\. Dependency Management**
+
+This project uses automated dependency monitoring via GitHub Dependabot across all 8 services and 5 programming languages.
+
+### Quick Start
+```bash
+# Check for updates across all services
+./scripts/check-dependency-updates.sh
+
+# Check specific service
+./scripts/check-dependency-updates.sh quarkus-receiver
+```
+
+### Documentation
+- **[Dependency Update Guide](docs/DEPENDENCY_UPDATE_GUIDE.md)** - Comprehensive best practices and procedures
+- **[Quick Reference Cheatsheet](docs/DEPENDENCY_UPDATE_CHEATSHEET.md)** - Commands and common tasks
+- **[Dependabot Config](.github/dependabot.yml)** - Automated monitoring configuration
+
+### Important Guidelines for This Project
+- **Update one service at a time** - This is a benchmark harness where performance matters
+- **Run benchmarks after framework updates** - Use `scripts/run-benchmark-matrix.sh`
+- **Document performance changes** - Update `docs/BENCHMARK_HISTORY.md` when results change materially
+- **Keep versions pinned** - Ensures reproducible benchmark results
+- **Test in Docker** - Match the actual benchmark environment
+
+---
+
+## **12\. CI/CD**
 
 GitHub Actions workflow automatically builds and pushes all service images to GitHub Container Registry on every push to `main`. No pre-build steps needed - the multi-stage Dockerfiles handle everything!
 

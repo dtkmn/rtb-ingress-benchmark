@@ -19,7 +19,28 @@
 
     <properties>
         <java.version>25</java.version>
+        <!-- Security fixes newer than Spring Boot's BOM; remove when its defaults catch up. -->
+        <tomcat.version>11.0.26</tomcat.version>
+        <lz4-java.version>1.12.0</lz4-java.version>
+        <zstd-jni.version>1.5.7-20</zstd-jni.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Kafka compression fixes: GHSA-mcr4-qmvw-px4g, GHSA-343h-94h5-c4wr,
+                 GHSA-gm45-99xc-r7wv (LZ4), and GHSA-8w96-r9r5-4j3r (Zstd). -->
+            <dependency>
+                <groupId>at.yawk.lz4</groupId>
+                <artifactId>lz4-java</artifactId>
+                <version>${lz4-java.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.luben</groupId>
+                <artifactId>zstd-jni</artifactId>
+                <version>${zstd-jni.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>

@@ -27,7 +27,7 @@ RUN ./mvnw dependency:go-offline -B
 # Copy source code
 COPY --chown=quarkus:quarkus src ./src
 
-# Build the native executable
+# The native Maven profile loads native-compatibility.properties for Zstd JNI.
 RUN ./mvnw package -Dnative -DskipTests -B
 
 # Stage 2: Create the runtime image
