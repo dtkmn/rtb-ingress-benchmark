@@ -45,9 +45,8 @@ COPY --from=builder /build/target/quarkus-app/quarkus/ /deployments/quarkus/
 
 # Static HTTP-only probe: no shell, shared libraries, or application helper class.
 COPY --from=ghcr.io/tarampampam/microcheck:1.4.0@sha256:c9f79cd408626de7c10f2d487d67339f49adf0ba61dde96ede65343269db1f85 /bin/httpcheck /usr/local/bin/httpcheck
-ADD --chmod=644 --checksum=sha256:f4ee993cd31f2a7add380553f87004262c22f1e3d0792f79d0eaf2157e2e3d1b https://raw.githubusercontent.com/tarampampam/microcheck/9588bd438068c512544b9953ce1c1262afa39851/LICENSE /usr/share/licenses/microcheck/LICENSE
-
-ADD --chmod=644 --checksum=sha256:f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af https://git.musl-libc.org/cgit/musl/plain/COPYRIGHT?h=v1.2.5 /usr/share/licenses/microcheck/musl-COPYRIGHT
+# Retain upstream notices locally so license-host outages cannot break builds.
+COPY --chmod=644 THIRD_PARTY_NOTICES /usr/share/licenses/microcheck/THIRD_PARTY_NOTICES
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
     CMD ["/usr/local/bin/httpcheck", "--connect-timeout", "2", "--timeout", "2", "http://127.0.0.1:8080/q/health/ready"]
