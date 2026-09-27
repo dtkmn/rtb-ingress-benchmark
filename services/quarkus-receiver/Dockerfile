@@ -13,8 +13,15 @@ COPY mvnw mvnw.cmd ./
 COPY .mvn .mvn
 COPY pom.xml ./
 
-# Download dependencies (this layer will be cached if pom.xml doesn't change)
-RUN ./mvnw dependency:go-offline -B
+# Retry transient Maven distribution/repository failures; retain bootstrap diagnostics.
+RUN for attempt in 1 2 3; do \
+      MVNW_VERBOSE=true ./mvnw dependency:go-offline -B && exit 0; \
+      if [ "$attempt" -lt 3 ]; then \
+        echo "Retrying Maven bootstrap/dependency download ($attempt/3)"; \
+        sleep 5; \
+      fi; \
+    done; \
+    exit 1
 
 # Copy source code
 COPY src ./src
