@@ -601,10 +601,8 @@ cargo run
 For Python service:
 ```bash
 cd services/python-receiver
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 2
+uv sync --frozen --python 3.13
+HTTP_SERVER_WORKERS=2 uv run --frozen --python 3.13 -m app.server
 ```
 
 For Spring Boot service:
