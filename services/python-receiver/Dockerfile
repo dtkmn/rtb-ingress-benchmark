@@ -1,5 +1,5 @@
 # Match the Python minor version and Debian ABI supplied by distroless.
-FROM python:3.13.15-slim-trixie AS builder
+FROM python:3.14.7-slim-trixie AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.19 /uv /uvx /usr/local/bin/
 
