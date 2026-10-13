@@ -324,6 +324,15 @@ def add_derived_metrics(row: dict[str, float | int | str]) -> None:
         row["http_reqs_per_stack_mem_avg_gib"] = stack_mem_efficiency
 
 
+def add_duration_percentiles(row: dict[str, float | int | str], metrics: dict) -> None:
+    duration_metric = metrics.get("http_req_duration", {})
+    duration_values = duration_metric.get("values", duration_metric)
+    for percentile, stat in (("p50", "med"), ("p99", "p(99)")):
+        value = duration_values.get(stat)
+        if value is not None:
+            row[f"http_req_duration_{percentile}_ms"] = float(value)
+
+
 def service_run_rows(results_dir: Path) -> list[dict[str, float | int | str]]:
     rows: list[dict[str, float | int | str]] = []
     kafka_limits = inspect_limits(results_dir / "kafka-container-inspect.json")
@@ -353,12 +362,7 @@ def service_run_rows(results_dir: Path) -> list[dict[str, float | int | str]]:
             "http_req_duration_max_ms": metric_value(metrics, "http_req_duration", "max"),
         }
 
-        duration_metric = metrics.get("http_req_duration", {})
-        duration_values = duration_metric.get("values", duration_metric)
-        for percentile, stat in (("p50", "med"), ("p99", "p(99)")):
-            value = duration_values.get(stat)
-            if value is not None:
-                row[f"http_req_duration_{percentile}_ms"] = float(value)
+        add_duration_percentiles(row, metrics)
 
         receiver_limits = inspect_limits(results_dir / f"{service}-container-inspect.json")
         receiver_stats = summarize_stats(results_dir / f"{service}-run-{run:02d}-receiver-stats.ndjson")

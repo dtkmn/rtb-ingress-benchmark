@@ -427,9 +427,10 @@ wait_for_compose_health() {
 wait_for_receiver_ready() {
   local service="$1"
   local base_url="$2"
-  local health_url="$base_url/health"
+  local health_url
   case "$service" in
     quarkus-receiver|quarkus-receiver-native) health_url="$base_url/q/health/ready" ;;
+    *) health_url="$base_url/health" ;;
   esac
 
   local deadline=$((SECONDS + 180))
@@ -454,6 +455,7 @@ wait_for_receiver_ready() {
             --write-out '%{http_code}' "$health_url" 2>&1)"; then
             case "$last_response" in
               2[0-9][0-9]) return 0 ;;
+              *) : ;; # Retry non-successful responses until the deadline.
             esac
           fi
           ;;

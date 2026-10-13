@@ -118,7 +118,8 @@ check_python_service() {
 
     if command -v uv &> /dev/null; then
         echo -e "${GREEN}  Syncing environment...${NC}"
-        uv sync --frozen --all-groups --quiet
+        # Inspect third-party wheels without building dependencies or this project.
+        uv sync --frozen --all-groups --no-build --no-install-project --quiet
 
         echo -e "${GREEN}  Outdated packages:${NC}"
         uv pip list --outdated || echo -e "${GREEN}  ✓ All dependencies up to date${NC}"
