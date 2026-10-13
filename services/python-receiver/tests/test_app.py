@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.config import (
@@ -14,7 +15,7 @@ from app.config import (
 )
 from app.kafka import PublishBackpressureError, PublishUnavailableError
 from app.main import create_app
-from app.server import worker_count
+from app.server import main as run_server, worker_count
 
 
 class StubPublisher:
@@ -57,6 +58,43 @@ def test_worker_count_defaults_invalid_values_to_one() -> None:
     assert worker_count("0") == 1
     assert worker_count("-1") == 1
     assert worker_count("2") == 2
+
+
+@pytest.mark.parametrize(
+    ("raw_host", "expected_host"),
+    [
+        (None, "127.0.0.1"),
+        ("", "127.0.0.1"),
+        (" \t ", "127.0.0.1"),
+        ("127.0.0.1", "127.0.0.1"),
+        ("::1", "::1"),
+        ("192.0.2.10", "192.0.2.10"),
+        (" 0.0.0.0 ", "0.0.0.0"),
+    ],
+)
+def test_server_binding_requires_explicit_remote_host(
+    monkeypatch: pytest.MonkeyPatch, raw_host: str | None, expected_host: str
+) -> None:
+    captured: dict[str, object] = {}
+
+    def record_run(app: str, **kwargs: object) -> None:
+        captured.update(app=app, **kwargs)
+
+    monkeypatch.setattr("app.server.uvicorn.run", record_run)
+    monkeypatch.setenv("HTTP_SERVER_WORKERS", "2")
+    if raw_host is None:
+        monkeypatch.delenv("HTTP_SERVER_HOST", raising=False)
+    else:
+        monkeypatch.setenv("HTTP_SERVER_HOST", raw_host)
+
+    run_server()
+
+    assert captured == {
+        "app": "app.main:app",
+        "host": expected_host,
+        "port": 8080,
+        "workers": 2,
+    }
 
 
 def test_http_only_accepts_without_publisher() -> None:
