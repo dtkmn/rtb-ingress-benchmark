@@ -16,7 +16,7 @@
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.40.1</quarkus.platform.version>
         <lz4-java.version>1.12.0</lz4-java.version>
-        <zstd-jni.version>1.5.7-20</zstd-jni.version>
+        <zstd-jni.version>1.5.7-22</zstd-jni.version>
         <surefire-plugin.version>3.6.0</surefire-plugin.version>
     </properties>
 
