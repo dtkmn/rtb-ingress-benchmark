@@ -1,6 +1,6 @@
-# Supply-chain audit: checks known CVEs in dependencies for the lightweight
-# ecosystems. Maven/Java OWASP Dependency-Check is intentionally excluded for
-# now because anonymous NVD updates are too slow/flaky for PR gating.
+# Supply-chain audit: checks known CVEs in dependencies across all services.
+# Java uses Maven-resolved CycloneDX SBOMs with OSV-Scanner, avoiding slow
+# anonymous NVD database updates while respecting platform BOMs and overrides.
 # This complements CodeQL (which audits your own code) and Dependabot (which
 # opens update PRs). These tools audit the *transitive dependency graph* for
 # published advisories, giving immediate blocking feedback on PRs.
@@ -8,6 +8,14 @@
 name: Supply Chain Audit
 
 on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'services/**/pom.xml'
+      - 'services/**/.mvn/**'
+      - 'services/**/mvnw'
+      - '.java-version'
+      - '.github/workflows/supply-chain-audit.yml'
   pull_request:
     branches: ["main"]
     paths:
@@ -19,6 +27,11 @@ on:
       - 'services/**/go.sum'
       - 'services/**/Cargo.toml'
       - 'services/**/Cargo.lock'
+      - 'services/**/pom.xml'
+      - 'services/**/.mvn/**'
+      - 'services/**/mvnw'
+      - '.java-version'
+      - '.github/workflows/supply-chain-audit.yml'
   schedule:
     - cron: "0 5 * * 1"   # Monday 05:00 UTC — complements Dependabot's weekly sweep
   workflow_dispatch:
@@ -27,6 +40,62 @@ permissions:
   contents: read
 
 jobs:
+  java-audit:
+    name: Java dependency audit (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - quarkus-receiver
+          - quarkus-sinker
+          - spring-receiver
+          - spring-virtual-receiver
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version-file: .java-version
+          cache: maven
+          cache-dependency-path: |
+            services/${{ matrix.service }}/pom.xml
+            services/${{ matrix.service }}/.mvn/wrapper/maven-wrapper.properties
+
+      - name: Resolve Java dependencies
+        # Scan Maven's actual dependency graph, including transitive and test
+        # dependencies, instead of estimating versions from the POM alone.
+        run: |
+          ./mvnw -B -ntp org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeBom \
+            -DoutputFormat=json \
+            -DincludeTestScope=true \
+            -Dcyclonedx.skipAttach=true
+          # OSV's action can accept an empty scan; reject incomplete SBOMs first.
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          bom = json.loads(Path("target/bom.json").read_text())
+          components = bom.get("components", [])
+          if bom.get("bomFormat") != "CycloneDX" or not components or any(
+              not c.get("version") or not c.get("purl", "").startswith("pkg:maven/") for c in components
+          ):
+              raise SystemExit("SBOM must contain resolved Maven dependencies with package URLs")
+          print(f"Resolved {len(components)} Maven dependencies for scanning")
+          PY
+
+      - name: OSV-Scanner (${{ matrix.service }})
+        uses: google/osv-scanner-action/osv-scanner-action@v2.6.0
+        with:
+          scan-args: |-
+            --lockfile=services/${{ matrix.service }}/target/bom.json
+
   audit:
     name: Lightweight supply-chain audit
     runs-on: ubuntu-latest
