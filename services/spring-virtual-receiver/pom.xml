@@ -20,6 +20,7 @@
     <properties>
         <java.version>25</java.version>
         <!-- Security fixes newer than Spring Boot's BOM; remove when its defaults catch up. -->
+        <jackson-bom.version>3.1.7</jackson-bom.version>
         <tomcat.version>11.0.26</tomcat.version>
         <lz4-java.version>1.12.0</lz4-java.version>
         <zstd-jni.version>1.5.7-20</zstd-jni.version>
@@ -48,7 +49,7 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
+            <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
         <dependency>
