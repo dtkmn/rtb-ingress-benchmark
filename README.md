@@ -605,6 +605,10 @@ uv sync --frozen --python 3.13
 HTTP_SERVER_WORKERS=2 uv run --frozen --python 3.13 -m app.server
 ```
 
+The Python server binds to `127.0.0.1:8080` when run locally. Set
+`HTTP_SERVER_HOST` to select another interface. The Docker image explicitly
+sets `HTTP_SERVER_HOST=0.0.0.0` so its published port remains reachable.
+
 For Spring Boot service:
 ```bash
 cd services/spring-receiver

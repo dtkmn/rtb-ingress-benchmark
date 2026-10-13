@@ -15,9 +15,10 @@ def worker_count(raw: str | None = None) -> int:
 
 
 def main() -> None:
+    host = os.getenv("HTTP_SERVER_HOST", "").strip() or "127.0.0.1"
     uvicorn.run(
         "app.main:app",
-        host="0.0.0.0",
+        host=host,
         port=8080,
         workers=worker_count(),
     )

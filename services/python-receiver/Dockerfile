@@ -11,6 +11,7 @@ COPY pyproject.toml uv.lock ./
 # Point the copied venv at distroless's interpreter and standard library.
 RUN uv sync \
     --frozen \
+    --no-build \
     --no-dev \
     --no-install-project \
     --python /usr/local/bin/python \
@@ -20,7 +21,8 @@ RUN uv sync \
 FROM gcr.io/distroless/python3-debian13:nonroot AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    HTTP_SERVER_HOST=0.0.0.0
 
 WORKDIR /app
 
