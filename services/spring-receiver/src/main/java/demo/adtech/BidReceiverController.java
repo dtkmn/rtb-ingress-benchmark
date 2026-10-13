@@ -1,7 +1,5 @@
 package demo.adtech;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -9,6 +7,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectWriter;
 
 import java.util.Map;
 
@@ -23,16 +23,16 @@ public class BidReceiverController {
 
     private final BidPublisher bidPublisher;
     private final BenchmarkSettings benchmarkSettings;
-    private final ObjectMapper objectMapper;
+    private final ObjectWriter bidPayloadWriter;
 
     public BidReceiverController(
             BidPublisher bidPublisher,
             BenchmarkSettings benchmarkSettings,
-            ObjectMapper objectMapper
+            ObjectWriter bidPayloadWriter
     ) {
         this.bidPublisher = bidPublisher;
         this.benchmarkSettings = benchmarkSettings;
-        this.objectMapper = objectMapper;
+        this.bidPayloadWriter = bidPayloadWriter;
     }
 
     @PostMapping("/bid-request")
@@ -62,8 +62,8 @@ public class BidReceiverController {
 
         byte[] payload;
         try {
-            payload = objectMapper.writeValueAsBytes(request);
-        } catch (JsonProcessingException exception) {
+            payload = bidPayloadWriter.writeValueAsBytes(request);
+        } catch (JacksonException exception) {
             return response(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(SERIALIZATION_ERROR));
         }
 

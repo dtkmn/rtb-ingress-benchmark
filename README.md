@@ -658,6 +658,16 @@ This project uses automated dependency monitoring via GitHub Dependabot across a
 
 GitHub Actions workflow automatically builds and pushes all service images to GitHub Container Registry on every push to `main`. No pre-build steps needed - the multi-stage Dockerfiles handle everything!
 
+The Supply Chain Audit workflow checks Java dependencies in separate jobs for
+`quarkus-receiver`, `quarkus-sinker`, `spring-receiver`, and `spring-virtual-receiver`.
+Each job resolves dependencies with Maven, generates a CycloneDX SBOM including
+transitive and test dependencies, and checks it with OSV-Scanner. Vulnerability
+findings or invalid dependency exports fail the job; no scanner API token is needed.
+
+Java POM, Maven wrapper, JDK version, and audit workflow changes trigger checks on
+pull requests targeting `main` and pushes to `main`. The audit also runs weekly
+and can be started manually. CodeQL separately checks the application source code.
+
 ---
 
 *Benchmark disclaimers: Results based on M-series Mac with Docker Desktop. Production results may vary.*
