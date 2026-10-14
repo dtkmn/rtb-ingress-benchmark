@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Adtech benchmark receiver (Python/FastAPI)"
 requires-python = ">=3.13,<3.14"
 dependencies = [
-    "fastapi==0.141.1",
+    "fastapi==0.143.0",
     "uvicorn[standard]==0.54.0",
     "aiokafka==0.14.0",
 ]
