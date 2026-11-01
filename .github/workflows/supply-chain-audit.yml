@@ -91,7 +91,7 @@ jobs:
           PY
 
       - name: OSV-Scanner (${{ matrix.service }})
-        uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
+        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
         with:
           scan-args: |-
             --lockfile=services/${{ matrix.service }}/target/bom.json
@@ -120,7 +120,7 @@ jobs:
         # the OSV.dev database directly against package-lock.json instead,
         # which is far more stable and doesn't depend on the npm registry at
         # all for the vulnerability lookup.
-        uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
+        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
         with:
           scan-args: |-
             --lockfile=services/node-receiver/package-lock.json
@@ -142,7 +142,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.12.19"
 
