@@ -76,35 +76,17 @@ jobs:
               if line.strip()
           ]
 
-          all_service_names = [service["name"] for service in services]
-          selected_names = set()
-          rebuild_all = False
-
-          for path in changed_files:
-              if path == ".github/workflows/build-and-push.yml":
-                  rebuild_all = True
-                  break
-              if path.startswith("services/quarkus-receiver/"):
-                  selected_names.update({"quarkus-receiver", "quarkus-receiver-native"})
-              elif path.startswith("services/go-receiver/"):
-                  selected_names.add("go-receiver")
-              elif path.startswith("services/quarkus-sinker/"):
-                  selected_names.add("quarkus-sinker")
-              elif path.startswith("services/rust-receiver/"):
-                  selected_names.add("rust-receiver")
-              elif path.startswith("services/python-receiver/"):
-                  selected_names.add("python-receiver")
-              elif path.startswith("services/spring-receiver/"):
-                  selected_names.add("spring-receiver")
-              elif path.startswith("services/spring-virtual-receiver/"):
-                  selected_names.add("spring-virtual-receiver")
-              elif path.startswith("services/node-receiver/"):
-                  selected_names.add("node-receiver")
-
-          if rebuild_all:
-              selected_names = set(all_service_names)
-
-          matrix = [service for service in services if service["name"] in selected_names]
+          matrix = []
+          rebuild_all = ".github/workflows/build-and-push.yml" in changed_files
+          for service in services:
+              directory = service["path"].removeprefix("./")
+              watched = (directory + "/",)
+              if directory in ("services/quarkus-receiver", "services/quarkus-sinker"):
+                  parent = "services/quarkus-parent"
+                  watched += (parent + "/",)
+                  service["build_contexts"] = "quarkus-parent=./" + parent
+              if rebuild_all or any(path.startswith(watched) for path in changed_files):
+                  matrix.append(service)
 
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
               fh.write(f"services={json.dumps(matrix, separators=(',', ':'))}\n")
@@ -153,6 +135,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.service.path }}
+          build-contexts: ${{ matrix.service.build_contexts }}
           file: ${{ matrix.service.path }}/${{ matrix.service.dockerfile }}
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: ${{ steps.meta.outputs.tags }}
