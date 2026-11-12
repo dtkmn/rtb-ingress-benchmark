@@ -37,9 +37,13 @@ class BidPublisher(Protocol):
 
 class KafkaBidPublisher:
     def __init__(self, settings: Settings) -> None:
+        self.applied_settings = {"acks": -1 if settings.kafka_acks == "all" else settings.kafka_acks,
+                                 "linger_ms": settings.kafka_linger_ms, "batch_bytes": settings.kafka_batch_bytes,
+                                 "request_timeout_ms": settings.kafka_request_timeout_ms,
+                                 "retry_backoff_ms": settings.kafka_retry_backoff_ms}
         self._producer = AIOKafkaProducer(
             bootstrap_servers=settings.kafka_bootstrap_servers,
-            acks=settings.kafka_acks,
+            acks=self.applied_settings["acks"],
             client_id="python-receiver",
             linger_ms=settings.kafka_linger_ms,
             max_batch_size=settings.kafka_batch_bytes,
@@ -64,7 +68,6 @@ class KafkaBidPublisher:
         try:
             delivery_future = await self._producer.send(topic, payload, key=key)
         except (KafkaConnectionError, KafkaTimeoutError, KafkaError) as exc:
-            LOGGER.warning("Kafka enqueue failed", exc_info=exc)
             raise PublishUnavailableError from exc
 
         if not confirm:
@@ -73,5 +76,4 @@ class KafkaBidPublisher:
         try:
             await delivery_future
         except (KafkaTimeoutError, KafkaError) as exc:
-            LOGGER.warning("Kafka delivery confirmation failed", exc_info=exc)
             raise PublishBackpressureError from exc

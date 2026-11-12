@@ -24,23 +24,24 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 pom_path = Path(sys.argv[1])
+namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
+property_path = "m:properties/m:quarkus.platform.version"
 try:
     root = ET.parse(pom_path).getroot()
-except ET.ParseError as exc:
-    print(f"could not parse {pom_path}: {exc}", file=sys.stderr)
+    version = root.findtext(property_path, namespaces=namespace)
+    parent = root.findtext("m:parent/m:relativePath", namespaces=namespace)
+    if version is None and parent:
+        pom_path = pom_path.parent / parent
+        version = ET.parse(pom_path).findtext(property_path, namespaces=namespace)
+except (OSError, ET.ParseError) as exc:
+    print(f"could not read {pom_path}: {exc}", file=sys.stderr)
     sys.exit(1)
 
-namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
-properties = root.find("m:properties", namespace)
-version = ""
-if properties is not None:
-    version = properties.findtext("m:quarkus.platform.version", default="", namespaces=namespace).strip()
-
-if not version:
+if not version or not version.strip():
     print(f"{pom_path} is missing quarkus.platform.version", file=sys.stderr)
     sys.exit(1)
 
-print(version)
+print(version.strip())
 PY
 }
 
@@ -151,6 +152,11 @@ OUT_DIR="${OUT_DIR:-$ROOT_DIR/results/$(date +%Y%m%d-%H%M%S)}"
 REPEATS="${REPEATS:-3}"
 BUILD_IMAGES="${BUILD_IMAGES:-1}"
 BENCHMARK_VALIDATE_ONLY="${BENCHMARK_VALIDATE_ONLY:-0}"
+BENCHMARK_CONFORMANCE_REPORT="${BENCHMARK_CONFORMANCE_REPORT:-}"
+EFFECTIVE_CONFORMANCE_REPORT="${BENCHMARK_CONFORMANCE_REPORT:-$OUT_DIR/conformance/summary.json}"
+if [[ "${BENCHMARK_CONFORMANCE:-0}" != "0" ]]; then
+  fail_guardrail "conformance fault adapters must be disabled for comparative benchmark runs"
+fi
 WARMUP_DURATION="${WARMUP_DURATION:-10s}"
 DURATION="${DURATION:-30s}"
 VUS="${VUS:-100}"
@@ -251,6 +257,43 @@ export BENCHMARK_KAFKA_TOPIC_MAX_MESSAGE_BYTES="${BENCHMARK_KAFKA_TOPIC_MAX_MESS
 export BENCHMARK_KAFKA_BROKER_NUM_NETWORK_THREADS="${BENCHMARK_KAFKA_BROKER_NUM_NETWORK_THREADS:-8}"
 export BENCHMARK_KAFKA_BROKER_NUM_IO_THREADS="${BENCHMARK_KAFKA_BROKER_NUM_IO_THREADS:-8}"
 export BENCHMARK_KAFKA_SOCKET_REQUEST_MAX_BYTES="${BENCHMARK_KAFKA_SOCKET_REQUEST_MAX_BYTES:-104857600}"
+export BENCHMARK_PIPELINE_MAX_RECORDS="${BENCHMARK_PIPELINE_MAX_RECORDS:-1024}"
+export BENCHMARK_PIPELINE_MAX_BYTES="${BENCHMARK_PIPELINE_MAX_BYTES:-16777216}"
+export BENCHMARK_PREPARATION_MAX_REQUESTS="${BENCHMARK_PREPARATION_MAX_REQUESTS:-128}"
+export BENCHMARK_HTTP_OUTCOME_TIMEOUT_MS="${BENCHMARK_HTTP_OUTCOME_TIMEOUT_MS:-30000}"
+export BENCHMARK_DRAIN_TIMEOUT_MS="${BENCHMARK_DRAIN_TIMEOUT_MS:-30000}"
+export BENCHMARK_RECEIVER_STOP_GRACE_SECONDS="${BENCHMARK_RECEIVER_STOP_GRACE_SECONDS:-40}"
+export BENCHMARK_TELEMETRY_PROFILE="${BENCHMARK_TELEMETRY_PROFILE:-controlled}"
+export BENCHMARK_NATIVE_MAX_HEAP="${BENCHMARK_NATIVE_MAX_HEAP:-512m}"
+export BENCHMARK_NATIVE_INITIAL_HEAP="${BENCHMARK_NATIVE_INITIAL_HEAP:-128m}"
+
+if [[ "$BENCHMARK_TELEMETRY_PROFILE" != "controlled" ]]; then
+  fail_guardrail "comparative runs require BENCHMARK_TELEMETRY_PROFILE=controlled; a matched operational profile has not been defined"
+fi
+
+python3 - <<'PY'
+import os, re, sys
+def heap(value):
+    match = re.fullmatch(r'([0-9]+)([kKmMgG]?)', value)
+    if not match or int(match[1]) < 1:
+        sys.exit('benchmark guardrail: native heap arguments must be positive integer sizes with optional k/m/g suffix')
+    return int(match[1]) * 1024 ** ('kmg'.index(match[2].lower()) + 1 if match[2] else 0)
+if heap(os.environ['BENCHMARK_NATIVE_INITIAL_HEAP']) > heap(os.environ['BENCHMARK_NATIVE_MAX_HEAP']):
+    sys.exit('benchmark guardrail: native initial heap must not exceed max heap')
+PY
+
+python3 - <<'PY'
+import os, re, sys
+names = ['BENCHMARK_PIPELINE_MAX_RECORDS', 'BENCHMARK_PIPELINE_MAX_BYTES',
+         'BENCHMARK_PREPARATION_MAX_REQUESTS', 'BENCHMARK_HTTP_OUTCOME_TIMEOUT_MS',
+         'BENCHMARK_DRAIN_TIMEOUT_MS', 'BENCHMARK_RECEIVER_STOP_GRACE_SECONDS']
+for name in names:
+    value = os.environ[name]
+    if not re.fullmatch(r'[0-9]+', value) or not 0 < int(value) <= 2147483647:
+        sys.exit(f'benchmark guardrail: {name} must be a positive 32-bit integer')
+if int(os.environ['BENCHMARK_RECEIVER_STOP_GRACE_SECONDS']) * 1000 < int(os.environ['BENCHMARK_DRAIN_TIMEOUT_MS']) + 10000:
+    sys.exit('benchmark guardrail: receiver stop grace must cover the drain timeout plus 10 seconds for teardown and process exit')
+PY
 
 if [[ "$DELIVERY_MODE" == "enqueue" && "${BENCHMARK_KAFKA_ACKS}" != "0" ]]; then
   echo "warning: enqueue mode is most comparable with BENCHMARK_KAFKA_ACKS=0; using explicit BENCHMARK_KAFKA_ACKS=${BENCHMARK_KAFKA_ACKS}" >&2
@@ -306,8 +349,8 @@ validate_service_set() {
       fail_guardrail "Unknown service in BENCHMARK_SERVICES: $service"
     fi
 
-    if [[ "$BENCHMARK_PRESET" == "strict-1" ]] && ! strict_1_supported_service "$service"; then
-      fail_guardrail "$service cannot satisfy BENCHMARK_PRESET=strict-1 cleanly: $(strict_1_unsupported_reason "$service")"
+    if [[ "$BENCHMARK_FAIRNESS_PROFILE" == "strict-1" ]] && ! strict_1_supported_service "$service"; then
+      fail_guardrail "$service cannot satisfy BENCHMARK_FAIRNESS_PROFILE=strict-1 cleanly: $(strict_1_unsupported_reason "$service")"
     fi
   done
 }
@@ -323,6 +366,16 @@ require_value() {
 }
 
 validate_confirm_guardrails() {
+  if [[ "$BENCHMARK_FAIRNESS_PROFILE" == "strict-1" ]]; then
+    require_value "HTTP_SERVER_WORKERS" "$HTTP_SERVER_WORKERS" "1" "strict-1 comparisons"
+    require_value "GOMAXPROCS" "$GOMAXPROCS" "1" "strict-1 comparisons"
+    require_value "QUARKUS_HTTP_IO_THREADS" "$QUARKUS_HTTP_IO_THREADS" "1" "strict-1 comparisons"
+    if [[ "$DELIVERY_MODE" != "http-only" ]]; then
+      require_value "BENCHMARK_KAFKA_PRODUCER_POOL_SIZE" "$BENCHMARK_KAFKA_PRODUCER_POOL_SIZE" "1" "strict-1 comparisons"
+      require_value "BENCHMARK_KAFKA_TOPIC_PARTITIONS" "$BENCHMARK_KAFKA_TOPIC_PARTITIONS" "1" "strict-1 comparisons"
+      require_value "BENCHMARK_KAFKA_RETRIES" "$BENCHMARK_KAFKA_RETRIES" "0" "strict-1 comparisons"
+    fi
+  fi
   if [[ "$DELIVERY_MODE" != "confirm" ]]; then
     return 0
   fi
@@ -336,12 +389,6 @@ validate_confirm_guardrails() {
   fi
 
   if [[ "$BENCHMARK_FAIRNESS_PROFILE" == "strict-1" ]]; then
-    require_value "HTTP_SERVER_WORKERS" "$HTTP_SERVER_WORKERS" "1" "strict-1 confirm comparisons"
-    require_value "GOMAXPROCS" "$GOMAXPROCS" "1" "strict-1 confirm comparisons"
-    require_value "QUARKUS_HTTP_IO_THREADS" "$QUARKUS_HTTP_IO_THREADS" "1" "strict-1 confirm comparisons"
-    require_value "BENCHMARK_KAFKA_PRODUCER_POOL_SIZE" "$BENCHMARK_KAFKA_PRODUCER_POOL_SIZE" "1" "strict-1 confirm comparisons"
-    require_value "BENCHMARK_KAFKA_TOPIC_PARTITIONS" "$BENCHMARK_KAFKA_TOPIC_PARTITIONS" "1" "strict-1 confirm comparisons"
-    require_value "BENCHMARK_KAFKA_RETRIES" "$BENCHMARK_KAFKA_RETRIES" "0" "strict-1 confirm comparisons"
     require_value "LMT_PERCENT" "$LMT_PERCENT" "0" "strict-1 confirm comparisons"
     require_value "BLOCKED_IP_PERCENT" "$BLOCKED_IP_PERCENT" "0" "strict-1 confirm comparisons"
   fi
@@ -493,17 +540,22 @@ kafka_topic_partition_count() {
 }
 
 validate_kafka_topic_guardrails() {
-  if [[ "$BENCHMARK_PRESET" != "strict-1" ]] || ! benchmark_uses_kafka; then
+  if ! benchmark_uses_kafka; then
     return 0
   fi
 
   local actual_partitions
+  docker compose exec -T kafka kafka-topics --bootstrap-server localhost:9092 \
+    --describe --topic "$BENCHMARK_KAFKA_TOPIC" >"$OUT_DIR/kafka-topic-describe.txt"
   actual_partitions="$(kafka_topic_partition_count "$BENCHMARK_KAFKA_TOPIC")"
   if [[ -z "$actual_partitions" ]]; then
     fail_guardrail "could not inspect Kafka topic $BENCHMARK_KAFKA_TOPIC for BENCHMARK_PRESET=strict-1"
   fi
 
-  require_value "Kafka topic $BENCHMARK_KAFKA_TOPIC partition count" "$actual_partitions" "1" "BENCHMARK_PRESET=strict-1; existing Docker volumes may contain an older wider topic"
+  require_value "Kafka topic $BENCHMARK_KAFKA_TOPIC partition count" "$actual_partitions" "$BENCHMARK_KAFKA_TOPIC_PARTITIONS" "effective topic configuration must match the declared profile"
+  if [[ "$BENCHMARK_PRESET" == "strict-1" ]]; then
+    require_value "Kafka topic $BENCHMARK_KAFKA_TOPIC partition count" "$actual_partitions" "1" "BENCHMARK_PRESET=strict-1; existing Docker volumes may contain an older wider topic"
+  fi
 }
 
 service_url() {
@@ -538,6 +590,75 @@ capture_container_inspect() {
   docker inspect "$(container_id_for "$service")" >"$OUT_DIR/$service-container-inspect.json"
 }
 
+validate_conformance_image_binding() {
+  local service="$1"
+  if ! python3 - "$service" "$EFFECTIVE_CONFORMANCE_REPORT" \
+      "$OUT_DIR/$service-container-inspect.json" "$OUT_DIR/$service-conformance-image-binding.json" <<'PY'
+import hashlib
+import json
+from pathlib import Path
+import re
+import sys
+
+service, report_path, inspect_path, output_path = sys.argv[1:]
+binding = {"schema_version": 1, "service": service, "passed": False,
+           "conformance_report": str(Path(report_path).resolve()), "errors": []}
+try:
+    report_bytes = Path(report_path).read_bytes()
+    binding["conformance_report_sha256"] = hashlib.sha256(report_bytes).hexdigest()
+    report = json.loads(report_bytes)
+    if not isinstance(report, dict) or type(report.get("schema_version")) is not int or report.get("schema_version") != 1 or report.get("passed") is not True or report.get("status") != "pass":
+        raise ValueError("conformance report is not a successful schema-version-1 report")
+    expected = report["images"][service]["id"]
+    inspected = json.loads(Path(inspect_path).read_bytes())
+    if not isinstance(inspected, list) or len(inspected) != 1 or not isinstance(inspected[0], dict):
+        raise ValueError("actual container inspection must contain exactly one container")
+    actual = inspected[0].get("Image")
+    container_id = inspected[0].get("Id")
+    binding.update(expected_image_id=expected, actual_image_id=actual, container_id=container_id)
+    for value, pattern in ((expected, r"sha256:[0-9a-f]{64}"), (actual, r"sha256:[0-9a-f]{64}"), (container_id, r"[0-9a-f]{64}")):
+        if not isinstance(value, str) or re.fullmatch(pattern, value) is None:
+            raise ValueError("missing or malformed immutable image/container identity")
+    if expected != actual:
+        raise ValueError(f"actual timed container image {actual} differs from approved image {expected}")
+    binding["passed"] = True
+except (OSError, ValueError, KeyError, TypeError) as error:
+    binding["errors"].append(str(error))
+Path(output_path).write_text(json.dumps(binding, indent=2) + "\n")
+if not binding["passed"]:
+    print(f"{service} conformance image binding failed: " + "; ".join(binding["errors"]), file=sys.stderr)
+    sys.exit(1)
+PY
+  then
+    fail_guardrail "$service actual container is not bound to the verified conformance image; warm-up and timed work have not started for this service; see $OUT_DIR/$service-conformance-image-binding.json"
+  fi
+}
+
+capture_and_validate_runtime() {
+  local service="$1"
+  local base_url="$2"
+  local workers=1
+  local cpuset_args=()
+  if [[ -n "$BENCHMARK_RECEIVER_CPUSET" ]]; then
+    cpuset_args=(--cpuset "$BENCHMARK_RECEIVER_CPUSET")
+  fi
+  case "$service" in
+    node-receiver|python-receiver) workers="$HTTP_SERVER_WORKERS" ;;
+  esac
+  if ! python3 scripts/capture-receiver-runtime.py --base-url "$base_url" --workers "$workers" \
+      --output "$OUT_DIR/$service-runtime.json"; then
+    fail_guardrail "$service running configuration could not be captured; timed work has not started"
+  fi
+  if ! python3 scripts/validate-receiver-runtime.py --service "$service" \
+      --runtime "$OUT_DIR/$service-runtime.json" --inspect "$OUT_DIR/$service-container-inspect.json" \
+      --cpus "${BENCHMARK_RECEIVER_CPUS:-2.0}" --memory "${BENCHMARK_RECEIVER_MEMORY:-768m}" \
+      ${cpuset_args[@]+"${cpuset_args[@]}"} \
+      --fairness-profile "$BENCHMARK_FAIRNESS_PROFILE" --output "$OUT_DIR/$service-runtime-validation.json"; then
+    fail_guardrail "$service effective configuration or optional-work evidence failed before timing; see runtime-validation.json"
+  fi
+  docker top "$(container_id_for "$service")" -eo pid,ppid,args >"$OUT_DIR/$service-processes.txt"
+}
+
 start_stats_capture() {
   local output_file="$1"
   shift
@@ -551,7 +672,6 @@ stop_stats_capture() {
   wait "$stats_pid" 2>/dev/null || true
 }
 
-trap cleanup EXIT
 
 cat >"$OUT_DIR/run-meta.txt" <<EOF
 timestamp=$(date -Iseconds)
@@ -570,9 +690,13 @@ delivery_mode=$DELIVERY_MODE
 kafka_acks=${BENCHMARK_KAFKA_ACKS}
 kafka_enabled=$(if benchmark_uses_kafka; then echo true; else echo false; fi)
 fairness_profile=$BENCHMARK_FAIRNESS_PROFILE
+telemetry_profile=$BENCHMARK_TELEMETRY_PROFILE
+native_max_heap_arg=$BENCHMARK_NATIVE_MAX_HEAP
+native_initial_heap_arg=$BENCHMARK_NATIVE_INITIAL_HEAP
 python_rust_confirm_parity_enforced=$BENCHMARK_ENFORCE_PYTHON_RUST_CONFIRM_PARITY
 repeats=$REPEATS
 build_images=$BUILD_IMAGES
+conformance_report=$EFFECTIVE_CONFORMANCE_REPORT
 vus=$VUS
 duration=$DURATION
 rate=$RATE
@@ -599,6 +723,12 @@ kafka_topic_max_message_bytes=${BENCHMARK_KAFKA_TOPIC_MAX_MESSAGE_BYTES:-}
 kafka_broker_num_network_threads=${BENCHMARK_KAFKA_BROKER_NUM_NETWORK_THREADS:-}
 kafka_broker_num_io_threads=${BENCHMARK_KAFKA_BROKER_NUM_IO_THREADS:-}
 kafka_socket_request_max_bytes=${BENCHMARK_KAFKA_SOCKET_REQUEST_MAX_BYTES:-}
+pipeline_max_records=$BENCHMARK_PIPELINE_MAX_RECORDS
+pipeline_max_bytes=$BENCHMARK_PIPELINE_MAX_BYTES
+preparation_max_requests=$BENCHMARK_PREPARATION_MAX_REQUESTS
+http_outcome_timeout_ms=$BENCHMARK_HTTP_OUTCOME_TIMEOUT_MS
+drain_timeout_ms=$BENCHMARK_DRAIN_TIMEOUT_MS
+receiver_stop_grace_seconds=$BENCHMARK_RECEIVER_STOP_GRACE_SECONDS
 receiver_cpus=${BENCHMARK_RECEIVER_CPUS:-2.0}
 receiver_memory=${BENCHMARK_RECEIVER_MEMORY:-768m}
 receiver_cpuset=${BENCHMARK_RECEIVER_CPUSET:-}
@@ -607,10 +737,23 @@ kafka_memory=${BENCHMARK_KAFKA_MEMORY:-1g}
 kafka_cpuset=${BENCHMARK_KAFKA_CPUSET:-}
 EOF
 
-if [[ "$BUILD_IMAGES" != "0" ]]; then
-  docker compose build "${SERVICES[@]}"
+if [[ -n "$BENCHMARK_CONFORMANCE_REPORT" ]]; then
+  if ! python3 scripts/run-conformance-gate.py --services "${SERVICES[@]}" \
+      --verify-report "$BENCHMARK_CONFORMANCE_REPORT"; then
+    fail_guardrail "matching immutable-image conformance evidence failed; timed work has not started"
+  fi
+else
+  conformance_build_args=()
+  if [[ "$BUILD_IMAGES" != "0" ]]; then
+    conformance_build_args=(--build)
+  fi
+  if ! python3 scripts/run-conformance-gate.py --services "${SERVICES[@]}" \
+      ${conformance_build_args[@]+"${conformance_build_args[@]}"} --output "$OUT_DIR/conformance"; then
+    fail_guardrail "required built-image conformance failed; timed work has not started; see $OUT_DIR/conformance"
+  fi
 fi
 
+trap cleanup EXIT
 if benchmark_uses_kafka; then
   docker compose up -d kafka
   wait_for_compose_health kafka
@@ -632,6 +775,11 @@ for service in "${SERVICES[@]}"; do
   wait_for_receiver_ready "$service" "$base_url"
   apply_cpuset_if_requested "$service" "$BENCHMARK_RECEIVER_CPUSET"
   capture_container_inspect "$service"
+  validate_conformance_image_binding "$service"
+  capture_and_validate_runtime "$service" "$base_url"
+  receiver_container_id="$(docker compose ps -q "$service")"
+  receiver_started_at="$(docker inspect --format '{{.State.StartedAt}}' "$receiver_container_id")"
+  curl --fail --silent --show-error --max-time 5 "$base_url/benchmark/state" >"$OUT_DIR/$service-initial-routed-state.json"
 
   if [[ "$WARMUP_DURATION" != "0s" ]]; then
     BASE_URL="$base_url" DURATION="$WARMUP_DURATION" VUS="$VUS" RATE="$RATE" \
@@ -675,6 +823,15 @@ for service in "${SERVICES[@]}"; do
   done
 
   docker compose stop "$service" >/dev/null
+  docker compose logs --no-color --since "$receiver_started_at" "$service" >"$OUT_DIR/$service-drain.log"
+  drain_workers=1
+  case "$service" in
+    node-receiver|python-receiver) drain_workers="$HTTP_SERVER_WORKERS" ;;
+  esac
+  if ! python3 scripts/validate-receiver-drain.py "$OUT_DIR/$service-drain.log" \
+      --expected-workers "$drain_workers" --output "$OUT_DIR/$service-drain.json" >/dev/null; then
+    fail_guardrail "$service drain/delivery evidence failed; see $OUT_DIR/$service-drain.json and $OUT_DIR/$service-drain.log"
+  fi
 done
 
 python3 scripts/collate-benchmark-results.py "$OUT_DIR"

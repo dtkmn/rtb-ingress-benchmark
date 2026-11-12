@@ -1,21 +1,32 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/dtkmn/go-adtech-receiver/internal/handlers" // Internal import
 	"github.com/dtkmn/go-adtech-receiver/internal/kafka"    // Internal import
-	"github.com/gin-gonic/gin"
-	metrics "github.com/zsais/go-gin-prometheus"
 )
 
 func main() {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	portNumber, err := strconv.Atoi(port)
+	if err != nil || portNumber < 1 || portNumber > 65535 {
+		log.Fatal("PORT must be an integer from 1 to 65535")
+	}
 	if len(os.Args) == 2 && os.Args[1] == "healthcheck" {
-		if err := checkHealth("http://127.0.0.1:8080/health"); err != nil {
+		if err := checkHealth("http://127.0.0.1:" + port + "/health"); err != nil {
 			log.Printf("Health check failed: %v", err)
 			os.Exit(1)
 		}
@@ -23,6 +34,10 @@ func main() {
 	}
 
 	// Get Kafka URL from environment
+	profile, err := telemetryProfile(os.Getenv("BENCHMARK_TELEMETRY_PROFILE"))
+	if err != nil {
+		log.Fatal(err)
+	}
 	kafkaURL := os.Getenv("KAFKA_BOOTSTRAP_SERVERS")
 	if kafkaURL == "" {
 		kafkaURL = "localhost:9092" // Default
@@ -31,28 +46,47 @@ func main() {
 
 	// Initialize the Kafka Producer
 	// This makes the producer available to the handlers package
-	kafka.InitKafkaProducer(kafkaURL)
+	if err := kafka.InitKafkaProducer(kafkaURL); err != nil {
+		log.Fatal(err)
+	}
+	pipeline := kafka.CurrentPipeline()
+	receiver := handlers.NewReceiver(pipeline, kafka.Topic())
 
-	// Set up the Gin server
-	router := gin.Default()
-
-	// --- Configure Prometheus Metrics ---
-	m := metrics.NewPrometheus("gin")
-	m.Use(router) // This makes Gin use the middleware
-
-	// --- Define Routes ---
-	// We now pass the handler function from the 'handlers' package
-	router.POST("/bid-request", handlers.ReceiveBid)
-
-	// Health check endpoint for Docker health checks
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "healthy"})
-	})
+	router := receiverRouter(receiver, profile)
 
 	// Run the server
-	log.Println("Starting Go AdTech Receiver on port 8080...")
-	if err := router.Run(":8080"); err != nil {
-		log.Fatalf("Go receiver stopped: %v", err)
+	log.Printf("Starting Go AdTech Receiver on port %s...", port)
+	server := &http.Server{Addr: ":" + port, Handler: router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second}
+	stopped := make(chan os.Signal, 1)
+	signal.Notify(stopped, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(stopped)
+	serverErrors := make(chan error, 1)
+	go func() { serverErrors <- server.ListenAndServe() }()
+	select {
+	case <-stopped:
+	case err := <-serverErrors:
+		if err != http.ErrServerClosed {
+			log.Printf("Go HTTP server stopped: %v", err)
+		}
+	}
+	pipeline.CloseIntake()
+	before, _ := json.Marshal(pipeline.Snapshot())
+	log.Printf("benchmark drain before: %s", before)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(pipeline.Snapshot().DrainTimeoutMS)*time.Millisecond+5*time.Second)
+	defer cancel()
+	httpDone := make(chan struct{})
+	go func() { _ = server.Shutdown(ctx); close(httpDone) }()
+	drainErr := pipeline.Shutdown(ctx)
+	select {
+	case <-httpDone:
+	case <-ctx.Done():
+		_ = server.Close()
+	}
+	after, _ := json.Marshal(pipeline.Snapshot())
+	log.Printf("benchmark drain after: %s", after)
+	if drainErr != nil {
+		log.Printf("Go pipeline drain failed: %v", drainErr)
+		os.Exit(1)
 	}
 }
 

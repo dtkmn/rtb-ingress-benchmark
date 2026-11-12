@@ -4,6 +4,8 @@ services:
     build:
       context: ${GITHUB_WORKSPACE}/services/quarkus-receiver
       dockerfile: Dockerfile
+      additional_contexts:
+        quarkus-parent: ${GITHUB_WORKSPACE}/services/quarkus-parent
     environment:
       BENCHMARK_DELIVERY_MODE: http-only
       JAVA_OPTS: -Xmx384m -Xms128m

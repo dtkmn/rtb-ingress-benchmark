@@ -6,7 +6,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectWriter;
 
 import java.util.Map;
@@ -36,12 +35,14 @@ public class BidReceiverController {
     }
 
     @PostMapping("/bid-request")
-    public ResponseEntity<Map<String, String>> receiveBid(@RequestBody BidRequest request) {
-        if (request.id == null || request.id.isBlank() || request.device == null
-                || (request.site == null && request.app == null)) {
-            return ResponseEntity.badRequest().body(BAD_REQUEST);
-        }
+    public ResponseEntity<Map<String, String>> receiveBid(@RequestBody byte[] body, jakarta.servlet.http.HttpServletRequest httpRequest) {
+        OwnedPipeline.Preparation preparation = (OwnedPipeline.Preparation) httpRequest.getAttribute(PreparationFilter.LEASE);
+        try { return handleRequest(ReceiverContract.parse(body), preparation); }
+        catch (ReceiverContract.Invalid invalid) { return ResponseEntity.status(invalid.status).body(BAD_REQUEST); }
+        finally { if (preparation != null) preparation.close(); }
+    }
 
+    ResponseEntity<Map<String,String>> handleRequest(BidRequest request, OwnedPipeline.Preparation preparation) {
         if (request.device.lmt == 1) {
             return ResponseEntity.noContent().build();
         }
@@ -54,23 +55,18 @@ public class BidReceiverController {
             return ResponseEntity.ok(ACCEPTED);
         }
 
-        byte[] payload;
         try {
-            payload = bidPayloadWriter.writeValueAsBytes(request);
-        } catch (JacksonException exception) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(SERIALIZATION_ERROR);
-        }
-
-        try {
-            bidPublisher.publish(request.id, payload, benchmarkSettings.isConfirmDeliveryMode()).join();
+            java.util.concurrent.CompletableFuture<Void> outcome = bidPublisher.publishPrepared(request.id, () -> bidPayloadWriter.writeValueAsBytes(request),
+                    benchmarkSettings.isConfirmDeliveryMode(), preparation);
+            if (preparation != null) preparation.close();
+            outcome.join();
         } catch (CompletionException exception) {
             Throwable cause = exception.getCause();
-            if (cause instanceof PublisherBackpressureException) {
-                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(KAFKA_BUFFER_FULL);
-            }
+            if (cause instanceof OwnedPipeline.Failure failure) return ResponseEntity.status(failure.status)
+                    .body(failure.status == 500 ? SERIALIZATION_ERROR : Map.of("status", failure.getMessage()));
+            if (cause instanceof PublisherBackpressureException) return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(KAFKA_BUFFER_FULL);
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(KAFKA_UNAVAILABLE);
         }
-
         return ResponseEntity.ok(ACCEPTED);
     }
 

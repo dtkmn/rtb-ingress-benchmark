@@ -1,6 +1,5 @@
 package demo.adtech;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -18,9 +17,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
+@io.quarkus.runtime.Startup
 @ApplicationScoped
 public class BidPublisher {
 
@@ -66,13 +65,21 @@ public class BidPublisher {
     int receiveBufferBytes;
 
     private List<KafkaProducer<String, byte[]>> producers = List.of();
+    private OwnedPipeline pipeline;
+    private ProducerEvidence producerEvidence;
+    private ConformanceAdapter conformance;
 
     @PostConstruct
     void init() {
-        if (benchmarkSettings.isHttpOnlyMode()) {
-            LOG.info("HTTP-only benchmark mode enabled; skipping Kafka producer initialization");
+        RuntimeEvidence.requireControlled(System.getenv("BENCHMARK_TELEMETRY_PROFILE"));
+        if (benchmarkSettings.isConfirmDeliveryMode() && "0".equals(acks)) throw new IllegalArgumentException("confirm requires acknowledgements 1 or all");
+        conformance=ConformanceAdapter.fromEnvironment(benchmarkSettings.deliveryMode());
+        if (benchmarkSettings.isHttpOnlyMode() || conformance!=null) {
+            LOG.info("HTTP-only or explicit conformance mode enabled; skipping Kafka SDK producer initialization");
+            initializePipeline();
             return;
         }
+
 
         int effectiveRetries = sanitizeNonNegativeInt("BENCHMARK_KAFKA_RETRIES", retries, 5);
         int effectiveRetryBackoffMs = sanitizeNonNegativeInt(
@@ -90,6 +97,7 @@ public class BidPublisher {
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+        props.put(ProducerConfig.ENABLE_METRICS_PUSH_CONFIG, false);
         props.put(ProducerConfig.ACKS_CONFIG, acks);
         props.put(ProducerConfig.LINGER_MS_CONFIG, lingerMs);
         props.put(ProducerConfig.BATCH_SIZE_CONFIG, batchBytes);
@@ -103,6 +111,7 @@ public class BidPublisher {
         applyOptionalBufferConfig(props, ProducerConfig.SEND_BUFFER_CONFIG, sendBufferBytes);
         applyOptionalBufferConfig(props, ProducerConfig.RECEIVE_BUFFER_CONFIG, receiveBufferBytes);
 
+        producerEvidence=new ProducerEvidence(props,effectiveProducerPoolSize);
         ArrayList<KafkaProducer<String, byte[]>> initializedProducers = new ArrayList<>(effectiveProducerPoolSize);
         for (int index = 0; index < effectiveProducerPoolSize; index++) {
             Properties producerProps = new Properties();
@@ -111,6 +120,7 @@ public class BidPublisher {
             initializedProducers.add(new KafkaProducer<>(producerProps));
         }
         producers = List.copyOf(initializedProducers);
+        initializePipeline();
         LOG.infof(
                 "Initialized Kafka producer pool for topic %s (delivery_mode=%s, acks=%s, producer_pool_size=%d, retries=%d, retry_backoff_ms=%d)",
                 topic,
@@ -122,54 +132,31 @@ public class BidPublisher {
         );
     }
 
-    public CompletionStage<Void> publish(BidRequest request) {
-        if (benchmarkSettings.isHttpOnlyMode()) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        if (producers.isEmpty()) {
-            return CompletableFuture.failedStage(new IllegalStateException("Kafka producer unavailable"));
-        }
-
-        byte[] payload;
-        try {
-            payload = objectMapper.writeValueAsBytes(request);
-        } catch (JsonProcessingException exception) {
-            return CompletableFuture.failedStage(exception);
-        }
-
-        KafkaProducer<String, byte[]> producer = selectProducer(request.id);
-        ProducerRecord<String, byte[]> record = new ProducerRecord<>(topic, request.id, payload);
-
-        try {
-            if (!benchmarkSettings.isConfirmDeliveryMode()) {
-                producer.send(record);
-                return CompletableFuture.completedFuture(null);
+    private void initializePipeline() {
+        pipeline = new OwnedPipeline(topic, conformance!=null && !benchmarkSettings.isHttpOnlyMode()?conformance:producers.isEmpty() ? null : new OwnedPipeline.Client() {
+            @Override public void send(OwnedPipeline.Record record, java.util.function.Consumer<Throwable> completion) {
+                KafkaDispatch.send(selectProducer(record.key()), record, completion);
             }
-        } catch (Exception e) {
-            return CompletableFuture.failedStage(e);
-        }
-
-        CompletableFuture<Void> delivery = new CompletableFuture<>();
-        try {
-            producer.send(record, (metadata, exception) -> {
-                if (exception != null) {
-                    delivery.completeExceptionally(exception);
-                    return;
-                }
-
-                delivery.complete(null);
-            });
-            return delivery;
-        } catch (Exception exception) {
-            return CompletableFuture.failedStage(exception);
-        }
+            @Override public void close() {
+                for (KafkaProducer<String, byte[]> producer : producers) producer.close(java.time.Duration.ZERO);
+            }
+        }, Math.max(1, producers.size()));
+        if (conformance!=null) conformance.bind(pipeline);
     }
-
+    public OwnedPipeline pipeline() { return pipeline; }
+    public java.util.Map<String,Object> producerRuntime() { var evidence=producerEvidence==null?ProducerEvidence.absent(producerPoolSize):producerEvidence.snapshot(producers.size());return conformance==null?evidence:conformance.transportMetadata(evidence); }
+    public ConformanceAdapter conformance() { return conformance; }
+    public CompletionStage<Void> publish(BidRequest request, OwnedPipeline.Preparation preparation) {
+        return pipeline.publish(request.id, () -> objectMapper.writeValueAsBytes(request), benchmarkSettings.isConfirmDeliveryMode(), preparation);
+    }
+    void onShutdown(@jakarta.enterprise.event.Observes io.quarkus.runtime.ShutdownEvent event) { close(); }
     @PreDestroy
     void close() {
-        for (KafkaProducer<String, byte[]> producer : producers) {
-            producer.close();
+        if (pipeline == null) return;
+        try { pipeline.close(); }
+        finally {
+            try { LOG.infof("BENCHMARK_DRAIN %s", objectMapper.writeValueAsString(pipeline.drainEvidence())); }
+            catch (com.fasterxml.jackson.core.JsonProcessingException failure) { LOG.error("Cannot encode final drain evidence", failure); }
         }
     }
 

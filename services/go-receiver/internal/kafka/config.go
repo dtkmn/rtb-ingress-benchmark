@@ -46,7 +46,7 @@ func LoadProducerConfigFromEnv() ProducerConfig {
 		Topic:            parseTopic(os.Getenv("BENCHMARK_KAFKA_TOPIC")),
 		DeliveryMode:     deliveryMode,
 		RequiredAcks:     acks,
-		BatchTimeoutMs:   parsePositiveInt("BENCHMARK_KAFKA_LINGER_MS", 10),
+		BatchTimeoutMs:   parseNonNegativeInt("BENCHMARK_KAFKA_LINGER_MS", 10),
 		BatchBytes:       int64(parsePositiveInt("BENCHMARK_KAFKA_BATCH_BYTES", 131072)),
 		RequestTimeoutMs: parsePositiveInt("BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS", 5000),
 		Retries:          parseNonNegativeInt("BENCHMARK_KAFKA_RETRIES", 5),
@@ -55,7 +55,7 @@ func LoadProducerConfigFromEnv() ProducerConfig {
 }
 
 func (c ProducerConfig) AsyncWrites() bool {
-	return c.DeliveryMode == DeliveryModeEnqueue
+	return c.UsesKafka()
 }
 
 func (c ProducerConfig) UsesKafka() bool {
@@ -67,6 +67,11 @@ func (c ProducerConfig) UsesKafka() bool {
 func ConfigureForTests(config ProducerConfig, writer MessageWriter) {
 	producerConfig = config
 	KafkaWriter = writer
+	var dispatcher Dispatcher
+	if writer != nil {
+		dispatcher = &synchronousDispatcher{writer: writer}
+	}
+	setPipeline(NewPipeline(config.DeliveryMode, DefaultLimits(), dispatcher))
 }
 
 func parseRequiredAcks(raw string) kgo.RequiredAcks {

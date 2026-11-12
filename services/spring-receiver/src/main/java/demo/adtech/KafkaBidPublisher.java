@@ -1,7 +1,6 @@
 package demo.adtech;
 
 import jakarta.annotation.PreDestroy;
-import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -14,6 +13,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 
@@ -24,13 +24,28 @@ public class KafkaBidPublisher implements BidPublisher {
 
     private final List<KafkaProducer<String, byte[]>> producers;
     private final BenchmarkSettings settings;
+    private final OwnedPipeline pipeline;
+    private ProducerEvidence producerEvidence;
+    private final ConformanceAdapter conformance;
 
     public KafkaBidPublisher(BenchmarkSettings settings) {
         this.settings = settings;
-        this.producers = settings.usesKafka() ? buildProducerPool(settings) : List.of();
+        RuntimeEvidence.requireControlled(System.getenv("BENCHMARK_TELEMETRY_PROFILE"));
+        if (settings.isConfirmDeliveryMode() && "0".equals(settings.kafkaAcks())) throw new IllegalArgumentException("confirm requires acknowledgements 1 or all");
+        this.conformance=ConformanceAdapter.fromEnvironment(settings.deliveryMode());
+        this.producers = settings.usesKafka() && conformance==null ? buildProducerPool(settings) : List.of();
+        this.pipeline = new OwnedPipeline(settings.kafkaTopic(), conformance!=null && settings.usesKafka()?conformance:producers.isEmpty() ? null : new OwnedPipeline.Client() {
+            @Override public void send(OwnedPipeline.Record record, java.util.function.Consumer<Throwable> completion) {
+                KafkaDispatch.send(selectProducer(record.key()), record, completion);
+            }
+            @Override public void close() {
+                for (KafkaProducer<String, byte[]> producer : producers) producer.close(java.time.Duration.ZERO);
+            }
+        }, Math.max(1, producers.size()));
+        if (conformance!=null) conformance.bind(pipeline);
 
         if (this.producers.isEmpty()) {
-            LOG.info("HTTP-only benchmark mode enabled; skipping Kafka producer initialization");
+            LOG.info("HTTP-only or explicit conformance mode enabled; skipping Kafka SDK producer initialization");
         } else {
             LOG.info(
                     "Initialized Spring receiver publisher (delivery_mode={}, topic={}, acks={}, producer_pool_size={}, retries={}, retry_backoff_ms={})",
@@ -46,46 +61,24 @@ public class KafkaBidPublisher implements BidPublisher {
 
     @Override
     public Mono<Void> publish(String key, byte[] payload, boolean confirm) {
-        return Mono.defer(() -> {
-            if (producers.isEmpty()) {
-                return Mono.error(new PublisherUnavailableException(null));
-            }
-
-            KafkaProducer<String, byte[]> producer = selectProducer(key);
-            ProducerRecord<String, byte[]> record = new ProducerRecord<>(settings.kafkaTopic(), key, payload);
-            if (!confirm) {
-                return Mono.fromRunnable(() -> {
-                    try {
-                        producer.send(record);
-                    } catch (RuntimeException exception) {
-                        throw new PublisherUnavailableException(exception);
-                    }
-                });
-            }
-
-            return Mono.create(sink -> {
-                Callback callback = (metadata, exception) -> {
-                    if (exception == null) {
-                        sink.success();
-                        return;
-                    }
-                    sink.error(new PublisherBackpressureException(exception));
-                };
-
-                try {
-                    producer.send(record, callback);
-                } catch (RuntimeException exception) {
-                    sink.error(new PublisherUnavailableException(exception));
-                }
-            });
-        });
+        return publishPrepared(key, () -> payload, confirm, null);
     }
-
+    @Override
+    public Mono<Void> publishPrepared(String key, OwnedPipeline.Serializer serializer, boolean confirm, OwnedPipeline.Preparation preparation) {
+        return Mono.fromFuture(pipeline.publish(key, serializer, confirm, preparation), true);
+    }
+    public OwnedPipeline pipeline() { return pipeline; }
+    public Map<String,Object> producerRuntime() { var evidence=producerEvidence==null?ProducerEvidence.absent(settings.kafkaProducerPoolSize()):producerEvidence.snapshot(producers.size());return conformance==null?evidence:conformance.transportMetadata(evidence); }
+    public ConformanceAdapter conformance() { return conformance; }
+    @org.springframework.context.event.EventListener(org.springframework.context.event.ContextClosedEvent.class)
+    public void onShutdown() { close(); }
     @PreDestroy
     @Override
     public void close() {
-        for (KafkaProducer<String, byte[]> producer : producers) {
-            producer.close();
+        try { pipeline.close(); }
+        finally {
+            try { LOG.info("BENCHMARK_DRAIN {}", tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(pipeline.drainEvidence())); }
+            catch (tools.jackson.core.JacksonException failure) { LOG.error("Cannot encode final drain evidence", failure); }
         }
     }
 
@@ -94,20 +87,23 @@ public class KafkaBidPublisher implements BidPublisher {
         return producers.get(index);
     }
 
-    private static List<KafkaProducer<String, byte[]>> buildProducerPool(BenchmarkSettings settings) {
+    private List<KafkaProducer<String, byte[]>> buildProducerPool(BenchmarkSettings settings) {
         ArrayList<KafkaProducer<String, byte[]>> producerPool = new ArrayList<>(settings.kafkaProducerPoolSize());
         for (int index = 0; index < settings.kafkaProducerPoolSize(); index++) {
-            producerPool.add(new KafkaProducer<>(buildProperties(settings, index)));
+            Properties properties=buildProperties(settings,index);
+            if (index==0) producerEvidence=new ProducerEvidence(properties,settings.kafkaProducerPoolSize());
+            producerPool.add(new KafkaProducer<>(properties));
         }
         return List.copyOf(producerPool);
     }
 
-    private static Properties buildProperties(BenchmarkSettings settings, int producerIndex) {
+    static Properties buildProperties(BenchmarkSettings settings, int producerIndex) {
         Properties properties = new Properties();
         properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, settings.kafkaBootstrapServers());
         properties.put(ProducerConfig.CLIENT_ID_CONFIG, "spring-receiver-" + (producerIndex + 1));
         properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+        properties.put(ProducerConfig.ENABLE_METRICS_PUSH_CONFIG, false);
         properties.put(ProducerConfig.ACKS_CONFIG, settings.kafkaAcks());
         properties.put(ProducerConfig.LINGER_MS_CONFIG, Integer.toString(settings.kafkaLingerMs()));
         properties.put(ProducerConfig.BATCH_SIZE_CONFIG, Integer.toString(settings.kafkaBatchBytes()));

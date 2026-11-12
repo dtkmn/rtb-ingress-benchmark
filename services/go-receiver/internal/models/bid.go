@@ -1,27 +1,29 @@
 package models
 
-// BidRequest is the Go struct that mirrors the Java BidRequest POJO.
-// We use pointers (*Site, *App, *Device) for fields that can be null,
-// which is crucial for our validation logic.
+// BidRequest is the closed benchmark v1 subset, after strict input validation.
+// Pointers distinguish omitted/null optional members from supplied empty values.
 type BidRequest struct {
 	ID     string  `json:"id"`
-	Site   *Site   `json:"site"`
-	App    *App    `json:"app"`
+	Site   *Site   `json:"site,omitempty"`
+	App    *App    `json:"app,omitempty"`
 	Device *Device `json:"device"`
-	User   *User   `json:"user"`
+	User   *User   `json:"user,omitempty"`
 }
 
 type Site struct {
-	Domain string `json:"domain"`
+	ID     *string `json:"id,omitempty"`
+	Domain *string `json:"domain,omitempty"`
 }
 type App struct {
-	Bundle string `json:"bundle"`
+	ID     *string `json:"id,omitempty"`
+	Bundle *string `json:"bundle,omitempty"`
 }
 type Device struct {
-	IP  string `json:"ip"`
-	OS  string `json:"os"`
-	LMT int    `json:"lmt"` // Limit Ad Tracking
+	IP  *string `json:"ip,omitempty"`
+	OS  *string `json:"os,omitempty"`
+	UA  *string `json:"ua,omitempty"`
+	LMT int     `json:"lmt"` // Always present, including the default zero.
 }
 type User struct {
-	ID string `json:"id"`
+	ID *string `json:"id,omitempty"`
 }

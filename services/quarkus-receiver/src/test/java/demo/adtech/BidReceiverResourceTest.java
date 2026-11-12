@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Uses Quarkus Dev Services to automatically spin up a Kafka container.
  */
 @QuarkusTest
-@QuarkusTestResource(value = KafkaCompanionResource.class, initArgs = {
+@QuarkusTestResource(value = KafkaCompanionResource.class, restrictToAnnotatedClass = true, initArgs = {
         @ResourceArg(name = "strimzi.kafka.image", value = "quay.io/strimzi-test-container/test-container:0.117.0-kafka-4.3.1"),
         @ResourceArg(name = "kraft", value = "true")
 })

@@ -58,7 +58,7 @@ public class BenchmarkSettings {
         this.kafkaBootstrapServers = normalizeKafkaBootstrapServers(kafkaBootstrapServers);
         this.kafkaTopic = normalizeKafkaTopic(kafkaTopic);
         this.kafkaAcks = normalizeKafkaAcks(kafkaAcks);
-        this.kafkaLingerMs = normalizePositiveInt(kafkaLingerMs, 10, "BENCHMARK_KAFKA_LINGER_MS");
+        this.kafkaLingerMs = normalizeNonNegativeInt(kafkaLingerMs, 10, "BENCHMARK_KAFKA_LINGER_MS");
         this.kafkaBatchBytes = normalizePositiveInt(kafkaBatchBytes, 131072, "BENCHMARK_KAFKA_BATCH_BYTES");
         this.kafkaRequestTimeoutMs = normalizePositiveInt(
                 kafkaRequestTimeoutMs,

@@ -12,6 +12,13 @@ DELIVERY_MODE_ENQUEUE = "enqueue"
 DELIVERY_MODE_HTTP_ONLY = "http-only"
 
 
+def telemetry_profile(raw: str | None = None) -> str:
+    candidate = (raw or "controlled").strip().lower() or "controlled"
+    if candidate not in {"controlled", "operational"}:
+        raise ValueError("BENCHMARK_TELEMETRY_PROFILE must be controlled or operational")
+    return candidate
+
+
 def normalize_delivery_mode(raw: str | None) -> str:
     candidate = (raw or DELIVERY_MODE_CONFIRM).strip().lower()
     if candidate in {DELIVERY_MODE_CONFIRM, DELIVERY_MODE_ENQUEUE, DELIVERY_MODE_HTTP_ONLY}:
@@ -79,6 +86,7 @@ def parse_non_negative_int(raw: str | None, *, fallback: int, env_name: str) -> 
 
 @dataclass(frozen=True)
 class Settings:
+    telemetry_profile: str = "controlled"
     delivery_mode: str = DELIVERY_MODE_CONFIRM
     kafka_bootstrap_servers: str = "localhost:9092"
     kafka_topic: str = "bids"
@@ -88,15 +96,31 @@ class Settings:
     kafka_request_timeout_ms: int = 5000
     kafka_retries: int = 5
     kafka_retry_backoff_ms: int = 100
+    workers: int = 1
+    pipeline_max_records: int = 1024
+    pipeline_max_bytes: int = 16 * 1024 * 1024
+    preparation_max_requests: int = 128
+    http_outcome_timeout_ms: int = 30000
+    drain_timeout_ms: int = 30000
 
     @classmethod
     def from_env(cls) -> "Settings":
         return cls(
+            telemetry_profile=telemetry_profile(os.getenv("BENCHMARK_TELEMETRY_PROFILE")),
+            **{field: parse_positive_int(os.getenv(name), fallback=default, env_name=name)
+               for field, name, default in [
+                   ("workers", "HTTP_SERVER_WORKERS", 1),
+                   ("pipeline_max_records", "BENCHMARK_PIPELINE_MAX_RECORDS", 1024),
+                   ("pipeline_max_bytes", "BENCHMARK_PIPELINE_MAX_BYTES", 16777216),
+                   ("preparation_max_requests", "BENCHMARK_PREPARATION_MAX_REQUESTS", 128),
+                   ("http_outcome_timeout_ms", "BENCHMARK_HTTP_OUTCOME_TIMEOUT_MS", 30000),
+                   ("drain_timeout_ms", "BENCHMARK_DRAIN_TIMEOUT_MS", 30000),
+               ]},
             delivery_mode=normalize_delivery_mode(os.getenv("BENCHMARK_DELIVERY_MODE")),
             kafka_bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
             kafka_topic=os.getenv("BENCHMARK_KAFKA_TOPIC", "bids"),
             kafka_acks=parse_kafka_acks(os.getenv("BENCHMARK_KAFKA_ACKS")),
-            kafka_linger_ms=parse_positive_int(
+            kafka_linger_ms=parse_non_negative_int(
                 os.getenv("BENCHMARK_KAFKA_LINGER_MS"),
                 fallback=10,
                 env_name="BENCHMARK_KAFKA_LINGER_MS",
