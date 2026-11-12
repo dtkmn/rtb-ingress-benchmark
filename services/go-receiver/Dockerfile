@@ -17,7 +17,7 @@ COPY internal/ ./internal
 # Build the application, creating a static binary
 # CGO_ENABLED=0 is critical for creating a static binary that
 # can run in a distroless static image.
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /app/receiver ./cmd/receiver/main.go
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /app/receiver ./cmd/receiver
 
 # --- Stage 2: Final Image ---
 FROM gcr.io/distroless/static-debian13:nonroot

@@ -42,3 +42,22 @@ func TestLoadProducerConfigFromEnv(t *testing.T) {
 	assert.Equal(t, 7, config.Retries)
 	assert.Equal(t, 250, config.RetryBackoffMs)
 }
+
+func TestHTTPOnlyDoesNotInitializeKafka(t *testing.T) {
+	previousWriter, previousConfig, previousPipeline := KafkaWriter, producerConfig, CurrentPipeline()
+	defer func() {
+		KafkaWriter, producerConfig = previousWriter, previousConfig
+		setPipeline(previousPipeline)
+	}()
+	t.Setenv("BENCHMARK_DELIVERY_MODE", DeliveryModeHttpOnly)
+	t.Setenv("BENCHMARK_KAFKA_ACKS", "0")
+	if err := InitKafkaProducer("uncontacted.invalid:9092"); err != nil {
+		t.Fatal(err)
+	}
+	if KafkaWriter != nil || CurrentPipeline().dispatcher != nil || CurrentPipeline().Mode() != DeliveryModeHttpOnly {
+		t.Fatal("http-only initialized a Kafka client or dispatcher")
+	}
+	if CurrentPipeline().Snapshot().AdmissionCandidates != 0 {
+		t.Fatal("http-only initialization formed a Kafka candidate")
+	}
+}
