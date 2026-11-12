@@ -21,7 +21,7 @@
         <java.version>25</java.version>
         <!-- Kafka 4.3.2 includes the patched Snappy codec. -->
         <kafka.version>4.3.2</kafka.version>
-        <lz4-java.version>1.12.1</lz4-java.version>
+        <lz4-java.version>1.14.0</lz4-java.version>
         <zstd-jni.version>1.5.7-26</zstd-jni.version>
     </properties>
 
