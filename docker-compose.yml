@@ -126,6 +126,8 @@ services:
     build:
       context: ./services/quarkus-receiver
       dockerfile: Dockerfile
+      additional_contexts:
+        quarkus-parent: ./services/quarkus-parent
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - BENCHMARK_KAFKA_TOPIC=${BENCHMARK_KAFKA_TOPIC:-bids}
@@ -160,6 +162,8 @@ services:
     build:
       context: ./services/quarkus-receiver
       dockerfile: Dockerfile.native
+      additional_contexts:
+        quarkus-parent: ./services/quarkus-parent
     environment:
       # This env var overrides the default in application.properties
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
@@ -198,6 +202,8 @@ services:
     build:
       context: ./services/quarkus-sinker
       dockerfile: Dockerfile
+      additional_contexts:
+        quarkus-parent: ./services/quarkus-parent
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - BENCHMARK_KAFKA_TOPIC=${BENCHMARK_KAFKA_TOPIC:-bids}
