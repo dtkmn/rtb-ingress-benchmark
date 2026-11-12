@@ -15,9 +15,9 @@
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.40.1.2</quarkus.platform.version>
-        <guava.version>33.7.2-jre</guava.version>
+        <guava.version>33.8.0-jre</guava.version>
         <opentelemetry-instrumentation.version>2.33.1</opentelemetry-instrumentation.version>
-        <lz4-java.version>1.12.1</lz4-java.version>
+        <lz4-java.version>1.14.0</lz4-java.version>
         <zstd-jni.version>1.5.7-26</zstd-jni.version>
         <surefire-plugin.version>3.6.1</surefire-plugin.version>
     </properties>
