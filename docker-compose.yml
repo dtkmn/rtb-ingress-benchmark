@@ -67,7 +67,7 @@ services:
 
 
   kafdrop:
-    image: obsidiandynamics/kafdrop:4.3.0
+    image: obsidiandynamics/kafdrop:4.3.1
     depends_on:
       - kafka
     ports:
@@ -79,7 +79,7 @@ services:
 
   # --- NEW OBSERVABILITY STACK ---
   prometheus:
-    image: prom/prometheus:v3.15.1
+    image: prom/prometheus:v3.16.0
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     # Needed for host.docker.internal on Linux, harmless on Mac
@@ -101,7 +101,7 @@ services:
       - prometheus
   
   postgres:
-    image: "pgvector/pgvector:0.8.6-pg17-trixie" # Use a pgvector-enabled image
+    image: "pgvector/pgvector:0.8.7-pg17-trixie" # Use a pgvector-enabled image
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: user
