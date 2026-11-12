@@ -1,3 +1,6 @@
+# A missing local parent context should fail without looking up a registry image.
+FROM scratch AS quarkus-parent
+
 # Using Java 25 (LTS) for both build and runtime
 FROM registry.access.redhat.com/ubi9/openjdk-25:1.24 AS builder
 
@@ -11,6 +14,7 @@ WORKDIR /build
 # Copy Maven wrapper and pom.xml first for better layer caching
 COPY mvnw mvnw.cmd ./
 COPY .mvn .mvn
+COPY --from=quarkus-parent /pom.xml /quarkus-parent/pom.xml
 COPY pom.xml ./
 
 # Retry transient Maven distribution/repository failures; retain bootstrap diagnostics.

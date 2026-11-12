@@ -3,13 +3,16 @@
 # This Dockerfile builds the native executable and creates the container image in one step
 #
 # Usage:
-# docker build -f Dockerfile.native -t quarkus-receiver-native:benchmark-local .
+# docker build --build-context quarkus-parent=../quarkus-parent -f Dockerfile.native -t quarkus-receiver-native:benchmark-local .
 # docker run -i --rm -p 8080:8080 quarkus-receiver-native:benchmark-local
 #
 # Note: Native builds can take several minutes and require significant memory
 ####
 
-# Stage 1: Build the native executable with GraalVM
+# A missing local parent context should fail without looking up a registry image.
+FROM scratch AS quarkus-parent
+
+# Build the native executable with GraalVM
 FROM quay.io/quarkus/ubi-quarkus-mandrel-builder-image:jdk-25 AS builder
 
 USER root
@@ -19,6 +22,7 @@ WORKDIR /build
 # Copy Maven wrapper and pom.xml first for better layer caching
 COPY --chown=quarkus:quarkus mvnw mvnw.cmd ./
 COPY --chown=quarkus:quarkus .mvn .mvn
+COPY --from=quarkus-parent /pom.xml /quarkus-parent/pom.xml
 COPY --chown=quarkus:quarkus pom.xml ./
 
 # Retry transient Maven distribution/repository failures; retain bootstrap diagnostics.
@@ -37,7 +41,7 @@ COPY --chown=quarkus:quarkus src ./src
 # The native Maven profile loads native-compatibility.properties for Zstd JNI.
 RUN ./mvnw package -Dnative -DskipTests -B
 
-# Stage 2: Create the runtime image
+# Create the runtime image
 FROM registry.access.redhat.com/ubi9/ubi-minimal:9.8
 
 # Install wget for health checks
