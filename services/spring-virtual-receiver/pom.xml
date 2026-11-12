@@ -19,17 +19,15 @@
 
     <properties>
         <java.version>25</java.version>
-        <!-- Security fixes newer than Spring Boot's BOM; remove when its defaults catch up. -->
-        <jackson-bom.version>3.1.7</jackson-bom.version>
-        <tomcat.version>11.0.26</tomcat.version>
+        <!-- Kafka 4.3.2 includes the patched Snappy codec. -->
+        <kafka.version>4.3.2</kafka.version>
         <lz4-java.version>1.12.1</lz4-java.version>
-        <zstd-jni.version>1.5.7-24</zstd-jni.version>
+        <zstd-jni.version>1.5.7-26</zstd-jni.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
-            <!-- Kafka compression fixes: GHSA-mcr4-qmvw-px4g, GHSA-343h-94h5-c4wr,
-                 GHSA-gm45-99xc-r7wv (LZ4), and GHSA-8w96-r9r5-4j3r (Zstd). -->
+            <!-- Kafka 4.3.2 still supplies older LZ4 and Zstandard codecs. -->
             <dependency>
                 <groupId>at.yawk.lz4</groupId>
                 <artifactId>lz4-java</artifactId>
