@@ -72,16 +72,29 @@ def test_worker_count_defaults_invalid_values_to_one() -> None:
         (" 0.0.0.0 ", "0.0.0.0"),
     ],
 )
+@pytest.mark.parametrize("workers", [1, 2])
 def test_server_binding_requires_explicit_remote_host(
-    monkeypatch: pytest.MonkeyPatch, raw_host: str | None, expected_host: str
+    monkeypatch: pytest.MonkeyPatch, raw_host: str | None, expected_host: str, workers: int
 ) -> None:
     captured: dict[str, object] = {}
 
-    def record_run(app: str, **kwargs: object) -> None:
-        captured.update(app=app, **kwargs)
+    def record_config(config, runner: str) -> None:
+        captured.update(app=config.app, host=config.host, port=config.port,
+                        workers=config.workers, timeout_graceful_shutdown=config.timeout_graceful_shutdown,
+                        runner=runner)
 
-    monkeypatch.setattr("app.server.uvicorn.run", record_run)
-    monkeypatch.setenv("HTTP_SERVER_WORKERS", "2")
+    class RecordingServer:
+        def __init__(self, config) -> None:
+            self.config = config
+
+        def run(self) -> None:
+            record_config(self.config, "receiver")
+
+    monkeypatch.setattr("app.server.ReceiverServer", RecordingServer)
+    monkeypatch.setattr("app.server.run_workers", lambda config: record_config(config, "workers"))
+    monkeypatch.setenv("HTTP_SERVER_WORKERS", str(workers))
+    monkeypatch.delenv("PORT", raising=False)
+    monkeypatch.delenv("BENCHMARK_DRAIN_TIMEOUT_MS", raising=False)
     if raw_host is None:
         monkeypatch.delenv("HTTP_SERVER_HOST", raising=False)
     else:
@@ -93,7 +106,9 @@ def test_server_binding_requires_explicit_remote_host(
         "app": "app.main:app",
         "host": expected_host,
         "port": 8080,
-        "workers": 2,
+        "workers": workers,
+        "timeout_graceful_shutdown": 30,
+        "runner": "workers" if workers > 1 else "receiver",
     }
 
 
@@ -154,7 +169,7 @@ def test_enqueue_mode_accepts_after_local_publish() -> None:
         )
 
     assert response.status_code == 200
-    assert publisher.calls[0]["confirm"] is False
+    assert publisher.calls[0]["confirm"] is True  # background task observes terminal outcome
 
 
 def test_published_payload_omits_absent_fields_with_stable_order() -> None:
@@ -271,7 +286,7 @@ def test_confirm_failure_returns_buffer_full() -> None:
     assert response.json() == {"status": "kafka buffer full"}
 
 
-def test_enqueue_failure_returns_kafka_unavailable() -> None:
+def test_enqueue_sdk_failure_after_receipt_does_not_revoke_acceptance() -> None:
     app = create_app(
         settings=Settings(delivery_mode=DELIVERY_MODE_ENQUEUE),
         publisher=StubPublisher(error=PublishUnavailableError()),
@@ -286,8 +301,9 @@ def test_enqueue_failure_returns_kafka_unavailable() -> None:
             },
         )
 
-    assert response.status_code == 503
-    assert response.json() == {"status": "kafka unavailable"}
+    assert response.status_code == 200
+    assert response.json() == {"status": "accepted"}
+    assert app.state.pipeline.snapshot()["client_failed"] == 1
 
 
 def test_delivery_mode_defaults_to_confirm() -> None:
