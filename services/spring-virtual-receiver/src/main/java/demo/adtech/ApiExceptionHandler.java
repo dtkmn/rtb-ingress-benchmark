@@ -11,7 +11,10 @@ import java.util.Map;
 public class ApiExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<Map<String, String>> handleHttpMessageNotReadable() {
+    public ResponseEntity<Map<String, String>> handleHttpMessageNotReadable(HttpMessageNotReadableException failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof PreparationFilter.TooLarge) return ResponseEntity.status(413).body(Map.of("status", "body too large"));
+        }
         return ResponseEntity.badRequest().body(Map.of("status", "bad request"));
     }
 }

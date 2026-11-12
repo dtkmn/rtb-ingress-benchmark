@@ -65,7 +65,7 @@ class BidReceiverControllerTest {
     }
 
     @Test
-    void preservesSitePayloadBytesAndIgnoresUnknownFields() throws Exception {
+    void preservesSelectedSitePayloadBytes() throws Exception {
         RecordingPublisher publisher = new RecordingPublisher(CompletableFuture.completedFuture(null));
         MockMvc mockMvc = buildMockMvc(
                 BenchmarkSettings.forTests("confirm", "localhost:9092", "bids", "all"),
@@ -75,9 +75,9 @@ class BidReceiverControllerTest {
         mockMvc.perform(post("/bid-request")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"unknown":true,"user":{"unknown":true,"id":"user-1"},
-                                 "device":{"lmt":0,"ua":"café 😀 https://example.com","os":"Android","ip":"1.2.3.4","unknown":true},
-                                 "app":null,"site":{"domain":"example.com","id":"site-1","unknown":true},
+                                {"user":{"id":"user-1"},
+                                 "device":{"lmt":0,"ua":"café 😀 https://example.com","os":"Android","ip":"1.2.3.4"},
+                                 "app":null,"site":{"domain":"example.com","id":"site-1"},
                                  "id":"req-site"}
                                 """))
                 .andExpect(status().isOk())
@@ -103,9 +103,9 @@ class BidReceiverControllerTest {
         mockMvc.perform(post("/bid-request")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"user":null,"device":{"ua":null,"os":null,"ip":"1.2.3.4","unknown":true},
-                                 "app":{"bundle":"demo.app","id":"app-1","unknown":true},
-                                 "site":null,"id":"req-app","unknown":true}
+                                {"user":null,"device":{"ua":null,"os":null,"ip":"1.2.3.4"},
+                                 "app":{"bundle":"demo.app","id":"app-1"},
+                                 "site":null,"id":"req-app"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("accepted"));
@@ -213,7 +213,7 @@ class BidReceiverControllerTest {
                 new Application().bidPayloadWriter()
         );
 
-        var response = controller.receiveBid(request);
+        var response = controller.handleRequest(request, null);
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertEquals(Map.of("status", "serialization error"), response.getBody());
