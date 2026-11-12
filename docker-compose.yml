@@ -79,7 +79,7 @@ services:
 
   # --- NEW OBSERVABILITY STACK ---
   prometheus:
-    image: prom/prometheus:v3.15.1
+    image: prom/prometheus:v3.16.0
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     # Needed for host.docker.internal on Linux, harmless on Mac
