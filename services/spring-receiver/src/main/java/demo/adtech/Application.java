@@ -10,6 +10,12 @@ import tools.jackson.databind.json.JsonMapper;
 public class Application {
 
     public static void main(String[] args) {
+        String workers=System.getenv("HTTP_SERVER_WORKERS");
+        if (workers!=null) {
+            int count=Integer.parseInt(workers.trim());
+            if (count<1) throw new IllegalArgumentException("HTTP_SERVER_WORKERS must be positive");
+            System.setProperty("reactor.netty.ioWorkerCount",Integer.toString(count));
+        }
         SpringApplication.run(Application.class, args);
     }
 

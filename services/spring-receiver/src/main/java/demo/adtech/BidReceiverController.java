@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
-import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectWriter;
 
 import java.util.Map;
@@ -36,18 +35,18 @@ public class BidReceiverController {
     }
 
     @PostMapping("/bid-request")
-    public Mono<ResponseEntity<?>> receiveBid(@RequestBody Mono<BidRequest> request) {
+    public Mono<ResponseEntity<?>> receiveBid(@RequestBody Mono<byte[]> request, org.springframework.web.server.ServerWebExchange exchange) {
+        OwnedPipeline.Preparation preparation = exchange.getAttribute(PreparationFilter.LEASE);
         return request
-                .flatMap(this::handleRequest)
+                .flatMap(value -> {
+                    try { return handleRequest(ReceiverContract.parse(value), preparation); }
+                    catch (ReceiverContract.Invalid invalid) { return response(ResponseEntity.status(invalid.status).body(BAD_REQUEST)); }
+                    finally { if (preparation != null) preparation.close(); }
+                })
                 .switchIfEmpty(Mono.just(ResponseEntity.badRequest().body(BAD_REQUEST)));
     }
 
-    private Mono<ResponseEntity<?>> handleRequest(BidRequest request) {
-        if (request.id == null || request.id.isBlank() || request.device == null
-                || (request.site == null && request.app == null)) {
-            return response(ResponseEntity.badRequest().body(BAD_REQUEST));
-        }
-
+    Mono<ResponseEntity<?>> handleRequest(BidRequest request, OwnedPipeline.Preparation preparation) {
         if (request.device.lmt == 1) {
             return response(ResponseEntity.noContent().build());
         }
@@ -60,14 +59,8 @@ public class BidReceiverController {
             return response(ResponseEntity.ok(ACCEPTED));
         }
 
-        byte[] payload;
-        try {
-            payload = bidPayloadWriter.writeValueAsBytes(request);
-        } catch (JacksonException exception) {
-            return response(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(SERIALIZATION_ERROR));
-        }
-
-        return bidPublisher.publish(request.id, payload, benchmarkSettings.isConfirmDeliveryMode())
+        return bidPublisher.publishPrepared(request.id, () -> bidPayloadWriter.writeValueAsBytes(request),
+                        benchmarkSettings.isConfirmDeliveryMode(), preparation)
                 .then(response(ResponseEntity.ok(ACCEPTED)))
                 .onErrorResume(failure -> response(mapPublisherFailure(failure)));
     }
@@ -82,6 +75,8 @@ public class BidReceiverController {
     }
 
     private static ResponseEntity<?> mapPublisherFailure(Throwable failure) {
+        if (failure instanceof OwnedPipeline.Failure pipelineFailure) return ResponseEntity.status(pipelineFailure.status)
+                .body(pipelineFailure.status == 500 ? SERIALIZATION_ERROR : Map.of("status", pipelineFailure.getMessage()));
         if (failure instanceof PublisherBackpressureException) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(KAFKA_BUFFER_FULL);
         }
