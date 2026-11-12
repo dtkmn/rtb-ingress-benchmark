@@ -24,23 +24,24 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 pom_path = Path(sys.argv[1])
+namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
+property_path = "m:properties/m:quarkus.platform.version"
 try:
     root = ET.parse(pom_path).getroot()
-except ET.ParseError as exc:
-    print(f"could not parse {pom_path}: {exc}", file=sys.stderr)
+    version = root.findtext(property_path, namespaces=namespace)
+    parent = root.findtext("m:parent/m:relativePath", namespaces=namespace)
+    if version is None and parent:
+        pom_path = pom_path.parent / parent
+        version = ET.parse(pom_path).findtext(property_path, namespaces=namespace)
+except (OSError, ET.ParseError) as exc:
+    print(f"could not read {pom_path}: {exc}", file=sys.stderr)
     sys.exit(1)
 
-namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
-properties = root.find("m:properties", namespace)
-version = ""
-if properties is not None:
-    version = properties.findtext("m:quarkus.platform.version", default="", namespaces=namespace).strip()
-
-if not version:
+if not version or not version.strip():
     print(f"{pom_path} is missing quarkus.platform.version", file=sys.stderr)
     sys.exit(1)
 
-print(version)
+print(version.strip())
 PY
 }
 

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rtb-ingress-benchmark:receiver:v1",
+  "title": "RTB receiver benchmark subset v1",
+  "description": "Decoded input shape only. Raw JSON, HTTP, filtering, admission and output rules are specified in docs/BENCHMARK_CONTRACT.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "device"],
+  "anyOf": [
+    {"required": ["site"], "properties": {"site": {"$ref": "#/$defs/site"}}},
+    {"required": ["app"], "properties": {"app": {"$ref": "#/$defs/app"}}}
+  ],
+  "properties": {
+    "id": {"type": "string", "maxLength": 256, "pattern": "[^\\u0009-\\u000d\\u0020]"},
+    "site": {"anyOf": [{"$ref": "#/$defs/site"}, {"type": "null"}]},
+    "app": {"anyOf": [{"$ref": "#/$defs/app"}, {"type": "null"}]},
+    "device": {"$ref": "#/$defs/device"},
+    "user": {"anyOf": [{"$ref": "#/$defs/user"}, {"type": "null"}]}
+  },
+  "$defs": {
+    "optionalString": {"type": ["string", "null"], "maxLength": 4096},
+    "site": {
+      "type": "object", "additionalProperties": false,
+      "properties": {"id": {"$ref": "#/$defs/optionalString"}, "domain": {"$ref": "#/$defs/optionalString"}}
+    },
+    "app": {
+      "type": "object", "additionalProperties": false,
+      "properties": {"id": {"$ref": "#/$defs/optionalString"}, "bundle": {"$ref": "#/$defs/optionalString"}}
+    },
+    "device": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "ip": {"$ref": "#/$defs/optionalString"},
+        "os": {"$ref": "#/$defs/optionalString"},
+        "ua": {"$ref": "#/$defs/optionalString"},
+        "lmt": {"type": "integer", "enum": [0, 1], "default": 0}
+      }
+    },
+    "user": {
+      "type": "object", "additionalProperties": false,
+      "properties": {"id": {"$ref": "#/$defs/optionalString"}}
+    }
+  }
+}

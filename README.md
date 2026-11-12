@@ -577,6 +577,8 @@ java -version
 
 If you do not use SDKMAN, point `JAVA_HOME` at a JDK 25 install before running Maven. Both Quarkus Maven builds enforce JDK 25 during `validate`, so a wrong local JDK fails before compile or dev mode startup.
 
+Set shared Quarkus, Guava and OpenTelemetry versions in the [Quarkus parent POM](services/quarkus-parent/pom.xml). Both Maven wrappers use that file directly from the checkout. Docker Compose also supplies the parent automatically. For a direct `docker build` from either service directory, add `--build-context quarkus-parent=../quarkus-parent`.
+
 For Quarkus services:
 ```bash
 cd services/quarkus-receiver
