@@ -16,9 +16,9 @@
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.40.1.2</quarkus.platform.version>
         <guava.version>33.8.0-jre</guava.version>
-        <opentelemetry-instrumentation.version>2.33.1</opentelemetry-instrumentation.version>
-        <lz4-java.version>1.14.0</lz4-java.version>
-        <zstd-jni.version>1.5.7-26</zstd-jni.version>
+        <opentelemetry-instrumentation.version>2.34.0-alpha</opentelemetry-instrumentation.version>
+        <lz4-java.version>1.14.1</lz4-java.version>
+        <zstd-jni.version>1.5.7-28</zstd-jni.version>
         <surefire-plugin.version>3.6.1</surefire-plugin.version>
     </properties>
 
@@ -34,7 +34,7 @@
             <dependency>
                 <groupId>io.opentelemetry.instrumentation</groupId>
                 <artifactId>opentelemetry-instrumentation-bom-alpha</artifactId>
-                <version>${opentelemetry-instrumentation.version}-alpha</version>
+                <version>${opentelemetry-instrumentation.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
